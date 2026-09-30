@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, readSession } from "@/lib/session";
 import { cleanName, isPaletteColor } from "@/lib/identity";
-import { getLiveblocks } from "@/lib/projects";
+import { getLiveblocks, getProject } from "@/lib/projects";
 import { readJson } from "@/lib/request";
 
 // Donne accès à un salon seulement s'il fait partie des projets de la session.
@@ -18,6 +18,12 @@ export async function POST(request: NextRequest) {
   const room = typeof body.room === "string" ? body.room : "";
   if (!projects.some((p) => p.s === room)) {
     return NextResponse.json({ error: "Accès refusé à ce projet." }, { status: 403 });
+  }
+
+  // Ne jamais ouvrir (ni recréer) le salon d'un projet supprimé ou en attente.
+  const project = await getProject(room).catch(() => null);
+  if (!project || project.status !== "active") {
+    return NextResponse.json({ error: "Ce projet n'existe plus." }, { status: 404 });
   }
 
   const userId =

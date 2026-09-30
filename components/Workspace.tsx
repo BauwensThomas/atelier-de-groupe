@@ -42,6 +42,11 @@ export function Workspace({ roomId, projectName }: Props) {
       window.location.href = `/?projet=${encodeURIComponent(roomId)}`;
       return { error: "forbidden" as const, reason: "Session expirée" };
     }
+    if (res.status === 404) {
+      // Projet supprimé entre-temps : retour à l'accueil.
+      window.location.href = "/";
+      return { error: "forbidden" as const, reason: "Projet supprimé" };
+    }
     if (!res.ok) throw new Error("Autorisation Liveblocks impossible");
     return res.json();
   }, [roomId]);
