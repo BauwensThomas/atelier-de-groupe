@@ -413,7 +413,12 @@ export function HomeScreen({ projects, initialProject, year }: Props) {
         </section>
       </div>
       </div>
-      <footer className="mt-8 text-xs text-neutral-400">© {year} Belgacai</footer>
+      <footer className="mt-8 flex items-center gap-4 text-xs text-neutral-400">
+        <a href="/aide" className="font-medium text-neutral-600 underline underline-offset-2 hover:text-neutral-900">
+          Mode d&apos;emploi
+        </a>
+        <span>© {year} Belgacai</span>
+      </footer>
     </main>
   );
 }
