@@ -319,9 +319,12 @@ body {
     min-height: 0 !important;
   }
 
-  .tiptap,
-  .tiptap * {
-    color: #000 !important;
+  /* PDF en couleur : couleurs des auteurs et fonds des cartes gardés,
+     même si "Graphiques d'arrière-plan" est décoché dans la fenêtre d'impression. */
+  .page,
+  .page * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .tiptap {
