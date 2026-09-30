@@ -45,6 +45,9 @@ next-env.d.ts
 # notes personnelles (mots de passe, prompt) : jamais dans Git
 /MD/
 
+# scripts ponctuels d'administration (à supprimer après usage)
+/zz-*
+
 # fichiers générés par les outils IA
 AGENTS.md
 CLAUDE.md

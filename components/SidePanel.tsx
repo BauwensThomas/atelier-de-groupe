@@ -60,7 +60,7 @@ export function SidePanel(props: Props) {
   const status = SYNC_LABEL[sync];
 
   return (
-    <div className="flex flex-col gap-3 text-[13px] lg:sticky lg:top-4">
+    <div className="flex flex-col gap-3 text-[13px]">
       <section className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-neutral-200">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Projet</h2>

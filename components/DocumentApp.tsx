@@ -323,7 +323,8 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
       )}
 
       <div className="print-reset flex flex-col gap-4 p-2 sm:p-4 lg:flex-row lg:items-start">
-        <main className="print-reset min-w-0 flex-1 overflow-hidden rounded-xl bg-neutral-200/60 ring-1 ring-neutral-200">
+        {/* overflow-clip (et non overflow-hidden) : garde les coins arrondis sans empêcher la barre d'outils de rester en haut */}
+        <main className="print-reset min-w-0 flex-1 overflow-clip rounded-xl bg-neutral-200/60 ring-1 ring-neutral-200">
           {loaded ? (
             <Editor
               provider={provider}
@@ -341,7 +342,8 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
           )}
         </main>
 
-        <aside className="no-print order-first lg:order-0 lg:w-64 lg:shrink-0 xl:w-72">
+        {/* Panneau toujours visible pendant le défilement (avec sa propre barre s'il dépasse l'écran) */}
+        <aside className="no-print order-first lg:sticky lg:top-4 lg:order-0 lg:max-h-[calc(100vh-2rem)] lg:w-64 lg:shrink-0 lg:self-start lg:overflow-y-auto lg:p-px xl:w-72">
           <SidePanel
             identity={identity}
             people={people}
