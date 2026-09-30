@@ -17,6 +17,18 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Bouton d'e-mail construit en tableau : respecté par toutes les messageries (pas de chevauchement). */
+function button(url: string, label: string): string {
+  return `
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0">
+        <tr>
+          <td style="background:#111111;border-radius:6px">
+            <a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 18px;color:#ffffff;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;text-decoration:none;border-radius:6px">${label}</a>
+          </td>
+        </tr>
+      </table>`;
+}
+
 async function send(to: string, subject: string, html: string, text: string, from?: string): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return false;
@@ -76,9 +88,7 @@ export async function sendRequestMail(info: RequestMail): Promise<boolean> {
       <table cellpadding="4" style="border-collapse:collapse">
         ${rows.map(([k, v]) => `<tr><td style="color:#666">${k}</td><td><strong>${escapeHtml(v)}</strong></td></tr>`).join("")}
       </table>
-      <p style="margin-top:20px">
-        <a href="${escapeHtml(info.decisionUrl)}" style="background:#111;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Voir la demande</a>
-      </p>
+      ${button(info.decisionUrl, "Voir la demande")}
       <p style="color:#666;font-size:12px">Le lien est valable 14 jours.</p>
     </div>`;
   const text = `${rows.map(([k, v]) => `${k} : ${v}`).join("\n")}\n\nVoir la demande : ${info.decisionUrl}`;
@@ -103,9 +113,7 @@ export async function sendAcceptedMail(to: string, projectName: string, password
         <tr><td style="color:#666">Nom du projet</td><td><strong>${escapeHtml(projectName)}</strong></td></tr>
         <tr><td style="color:#666">Mot de passe</td><td><strong>${escapeHtml(password)}</strong></td></tr>
       </table>
-      <p style="margin-top:20px">
-        <a href="${escapeHtml(loginUrl)}" style="background:#111;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Se connecter</a>
-      </p>
+      ${button(loginUrl, "Se connecter")}
       <p style="color:#666;font-size:12px">Partage ces infos seulement avec ton groupe.</p>
     </div>`;
   const text = `Ton projet est accepté.
@@ -127,9 +135,7 @@ export async function sendPasswordMail(to: string, projects: PasswordEntry[]) {
         <tr><td style="color:#666">Nom du projet</td><td><strong>${escapeHtml(p.name)}</strong></td></tr>
         <tr><td style="color:#666">Mot de passe</td><td><strong>${escapeHtml(p.password)}</strong></td></tr>
       </table>
-      <p style="margin:0 0 20px">
-        <a href="${escapeHtml(p.loginUrl)}" style="background:#111;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none">Se connecter</a>
-      </p>`,
+      ${button(p.loginUrl, "Se connecter")}`,
     )
     .join("");
   const html = `
