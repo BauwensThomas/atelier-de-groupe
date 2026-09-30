@@ -175,8 +175,13 @@ export default function HelpPage() {
               oublié ? » et indique l&apos;e-mail de la personne qui a créé le projet. Elle le recevra.
             </li>
             <li>
-              <strong className="text-white">Quitter le projet</strong> : en bas du panneau de droite. Il faudra le mot
-              de passe pour revenir.
+              <strong className="text-white">Se déconnecter</strong> : en bas du panneau de droite. Sur un ordinateur de
+              l&apos;école ou partagé, pense à cliquer dessus en partant : fermer la page ne suffit pas, le navigateur
+              resterait connecté. Tu restes membre du projet, le mot de passe sera redemandé.
+            </li>
+            <li>
+              <strong className="text-white">Quitter le projet</strong> : sous « Se déconnecter ». Tu sors du groupe
+              (retiré des membres). Il faudra le mot de passe pour revenir.
             </li>
             <li>Le mot de passe du projet ne se partage qu&apos;avec ton groupe.</li>
           </ul>

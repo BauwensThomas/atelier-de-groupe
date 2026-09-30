@@ -363,7 +363,19 @@ export function HomeScreen({ projects, initialProject, year }: Props) {
 
         {projects.length > 0 && (
           <section className="mb-4 rounded-xl bg-white p-4 shadow-sm ring-1 ring-neutral-200">
-            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Mes projets</h2>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Mes projets</h2>
+              <button
+                type="button"
+                onClick={async () => {
+                  await fetch("/api/projects/logout", { method: "POST" }).catch(() => null);
+                  window.location.href = "/";
+                }}
+                className="text-[11px] text-neutral-500 underline underline-offset-2 hover:text-neutral-800"
+              >
+                Se déconnecter
+              </button>
+            </div>
             <ul className="flex flex-col">
               {[...projects].reverse().map((p) => (
                 <li key={p.slug}>

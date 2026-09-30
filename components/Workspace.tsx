@@ -59,6 +59,8 @@ export function Workspace({ roomId, projectName }: Props) {
       lostConnectionTimeout={4000}
       // Onglet en arrière-plan depuis 5 minutes : on se déconnecte (reconnexion au retour).
       backgroundKeepAliveTimeout={5 * 60 * 1000}
+      // Si on ferme la page avant que les dernières modifications soient envoyées : avertissement du navigateur.
+      preventUnsavedChanges
     >
       <RoomProvider
         id={roomId}

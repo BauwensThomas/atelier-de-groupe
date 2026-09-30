@@ -1,6 +1,6 @@
 "use client";
 
-import { FileDown, History, LayoutGrid, LogOut, Pencil, Printer, X } from "lucide-react";
+import { FileDown, History, LayoutGrid, LogOut, Pencil, Printer, UserMinus, X } from "lucide-react";
 import { ShareButton } from "./ShareButton";
 import type { Identity } from "@/lib/identity";
 import type { Activity } from "@/lib/activity";
@@ -41,6 +41,7 @@ type Props = {
   onOpenVersions: () => void;
   versionsCount: number;
   onLeave: () => void;
+  onLogout: () => void;
   project: { slug: string; name: string };
 };
 
@@ -167,14 +168,24 @@ export function SidePanel(props: Props) {
 
       <ActivityList items={props.activity} />
 
-      <button
-        type="button"
-        onClick={props.onLeave}
-        className="flex items-center justify-center gap-1.5 self-center text-xs text-neutral-500 hover:text-neutral-800"
-      >
-        <LogOut size={13} aria-hidden />
-        Quitter ce projet
-      </button>
+      <div className="flex flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={props.onLogout}
+          className="flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-neutral-800 ring-1 ring-neutral-300 hover:bg-white"
+        >
+          <LogOut size={14} aria-hidden />
+          Se déconnecter
+        </button>
+        <button
+          type="button"
+          onClick={props.onLeave}
+          className="flex items-center justify-center gap-1.5 self-center text-xs text-neutral-500 hover:text-red-700"
+        >
+          <UserMinus size={13} aria-hidden />
+          Quitter ce projet
+        </button>
+      </div>
     </div>
   );
 }

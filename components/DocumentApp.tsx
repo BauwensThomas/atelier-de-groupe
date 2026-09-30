@@ -291,8 +291,20 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     setExporting(false);
   }
 
+  // Se déconnecter : oublie les projets sur cet appareil, mais on reste membre (juste "hors ligne").
+  async function onLogout() {
+    await fetch("/api/projects/logout", { method: "POST" }).catch(() => null);
+    window.location.href = "/";
+  }
+
+  // Quitter le projet : on sort du groupe (retiré de la liste des membres).
   async function onLeave() {
-    if (!window.confirm(`Quitter le projet "${project.name}" ? Il faudra le mot de passe pour revenir.`)) return;
+    if (
+      !window.confirm(
+        `Quitter le projet "${project.name}" ? Tu seras retiré des membres, et il faudra le mot de passe pour revenir.\n\nPour simplement fermer ta session, utilise plutôt "Se déconnecter".`,
+      )
+    )
+      return;
     // On retire sa fiche de la liste des membres, et on attend qu'elle soit bien envoyée (3 s max).
     if (myId) {
       removeMember(provider.getYDoc(), myId);
@@ -358,6 +370,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
             onOpenVersions={() => setVersionsOpen(true)}
             versionsCount={versions.length}
             onLeave={onLeave}
+            onLogout={onLogout}
             project={project}
           />
         </aside>
