@@ -7,7 +7,7 @@ export const PALETTE = [
   { value: "#c2410c", label: "Orange" },
   { value: "#db2777", label: "Rose" },
   { value: "#0f766e", label: "Turquoise" },
-  { value: "#92400e", label: "Marron" },
+  { value: "#a16207", label: "Moutarde" },
 ] as const;
 
 export const NAME_MAX = 24;
