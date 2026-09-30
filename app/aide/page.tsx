@@ -32,7 +32,7 @@ function Points({ children }: { children: ReactNode }) {
 export default function HelpPage() {
   const year = new Date().getFullYear();
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
+    <main className="mx-auto max-w-5xl px-4 py-10">
       <a href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900">
         <ArrowLeft size={15} aria-hidden />
         Retour à l&apos;accueil
@@ -50,7 +50,7 @@ export default function HelpPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <Section n={1} title="Créer le projet du groupe (une seule personne par groupe)">
           <Steps>
             <li>
