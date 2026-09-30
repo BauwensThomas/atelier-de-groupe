@@ -50,7 +50,7 @@ export default function HelpPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="flex flex-col gap-4">
         <Section n={1} title="Créer le projet du groupe (une seule personne par groupe)">
           <Steps>
             <li>
