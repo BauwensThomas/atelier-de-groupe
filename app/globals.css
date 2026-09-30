@@ -1,0 +1,354 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* Page façon Word */
+.page {
+  width: 100%;
+  max-width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08), 0 8px 24px rgb(0 0 0 / 0.06);
+  padding: 25mm 20mm;
+}
+
+@media (max-width: 640px) {
+  .page {
+    min-height: 70vh;
+    padding: 20px 16px;
+  }
+}
+
+/* Pagination façon Word (écran large) : la hauteur vient des pages, pas d'un minimum */
+.page.paginated {
+  min-height: 0;
+  padding-bottom: 0;
+}
+
+.page.paginated .tiptap {
+  min-height: 0;
+}
+
+.tiptap > .page-break,
+.tiptap > .page-end {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  user-select: none;
+  pointer-events: none;
+}
+
+.tiptap > .page-break + * {
+  margin-top: 0 !important;
+}
+
+.page-margin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-number {
+  font-size: 11px;
+  color: #a3a3a3;
+}
+
+/* Espace entre deux pages, avec une ombre pour marquer les bords */
+.page-gap {
+  background: #e8e8e8;
+  box-shadow:
+    inset 0 5px 5px -5px rgb(0 0 0 / 0.18),
+    inset 0 -5px 5px -5px rgb(0 0 0 / 0.18);
+}
+
+/* Contenu de l'éditeur */
+.tiptap {
+  outline: none;
+  font-size: 11.5pt;
+  line-height: 1.6;
+  color: #111;
+  min-height: 60vh;
+}
+
+.tiptap > * + * {
+  margin-top: 0.6em;
+}
+
+.tiptap h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 1em;
+}
+
+.tiptap h2 {
+  font-size: 1.4em;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 0.9em;
+}
+
+.tiptap h3 {
+  font-size: 1.15em;
+  font-weight: 600;
+  margin-top: 0.8em;
+}
+
+.tiptap ul {
+  list-style: disc;
+  padding-left: 1.5em;
+}
+
+.tiptap ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+}
+
+.tiptap li > p {
+  margin: 0;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Tableaux */
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  margin: 0.8em 0;
+}
+
+.tiptap th,
+.tiptap td {
+  border: 1px solid #d4d4d4;
+  padding: 6px 8px;
+  vertical-align: top;
+  position: relative;
+}
+
+.tiptap th {
+  background: #f5f5f5;
+  font-weight: 600;
+  text-align: left;
+}
+
+.tiptap .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(37 99 235 / 0.12);
+  pointer-events: none;
+}
+
+.tiptap .tableWrapper {
+  overflow-x: auto;
+}
+
+/* Texte coloré par auteur */
+.tiptap span[data-author] {
+  cursor: text;
+}
+
+/* Texte effacé par un autre que son auteur */
+.tiptap .tracked-deletion {
+  text-decoration-line: line-through;
+  text-decoration-thickness: 2px;
+  opacity: 0.7;
+}
+
+/* Blocs question */
+/* Question : carte gris clair, texte noir. Sujet : carte gris foncé, texte blanc. */
+.question-block {
+  position: relative;
+  background: #f3f3f3;
+  border-radius: 6px;
+  padding: 6px 12px 8px;
+  margin: 1em 0;
+}
+
+.subject-block {
+  background: #3f3f3f;
+}
+
+.subject-block .question-label,
+.subject-block .question-date {
+  color: #bdbdbd;
+}
+
+.subject-block .question-actions button {
+  color: #d4d4d4;
+}
+
+.subject-block .question-actions button:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.question-date {
+  font-size: 11px;
+  color: #a3a3a3;
+}
+
+/* Boutons (cadenas, suppression) visibles seulement au survol, sauf si le bloc est déverrouillé */
+.question-actions {
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.question-block:hover .question-actions,
+.question-block:focus-within .question-actions,
+.question-block[data-locked="false"] .question-actions {
+  opacity: 1;
+}
+
+.question-block .question-content,
+.question-block .question-content * {
+  color: #000 !important;
+}
+
+.subject-block .question-content,
+.subject-block .question-content * {
+  color: #fff !important;
+}
+
+.question-block .question-content > * + * {
+  margin-top: 0.4em;
+}
+
+.question-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 20px;
+  margin-bottom: 1px;
+  user-select: none;
+}
+
+.question-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #737373;
+}
+
+/* Curseurs des autres */
+.collaboration-carets__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-carets__label {
+  position: absolute;
+  top: -1.35em;
+  left: -2px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  padding: 3px 5px;
+  border-radius: 3px 3px 3px 0;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Impression / PDF : page seule, tout en noir */
+@media print {
+  @page {
+    size: A4;
+    margin: 18mm;
+
+    @bottom-center {
+      content: counter(page);
+      font-size: 9pt;
+      color: #555;
+    }
+  }
+
+  .page-break,
+  .page-end {
+    display: none !important;
+  }
+
+  /* Badge Liveblocks : élément d'interface, pas de place dans le document imprimé */
+  #liveblocks-badge {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  .no-print,
+  .collaboration-carets__caret,
+  .collaboration-carets__label {
+    display: none !important;
+  }
+
+  .print-reset {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  .page {
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: none !important;
+    min-height: 0 !important;
+  }
+
+  .tiptap,
+  .tiptap * {
+    color: #000 !important;
+  }
+
+  .tiptap {
+    min-height: 0;
+  }
+
+  .tiptap .tracked-deletion {
+    display: none;
+  }
+
+  textarea::placeholder {
+    color: transparent !important;
+  }
+
+  .question-block {
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .subject-block .question-content,
+  .subject-block .question-content * {
+    color: #fff !important;
+  }
+
+  .tiptap table,
+  .tiptap tr {
+    break-inside: avoid;
+  }
+}
