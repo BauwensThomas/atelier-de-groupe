@@ -180,9 +180,9 @@ export function SidePanel(props: Props) {
         <button
           type="button"
           onClick={props.onLeave}
-          className="flex items-center justify-center gap-1.5 self-center text-xs text-neutral-500 hover:text-red-700"
+          className="flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-red-700 ring-1 ring-red-300 hover:bg-red-50"
         >
-          <UserMinus size={13} aria-hidden />
+          <UserMinus size={14} aria-hidden />
           Quitter ce projet
         </button>
       </div>
