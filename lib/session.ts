@@ -34,8 +34,6 @@ export async function readSession(token: string | undefined): Promise<SessionPro
         (x): x is SessionProject => typeof x?.s === "string" && typeof x?.n === "string",
       );
     }
-    // Ancien cookie (mot de passe commun) : accès au projet d'origine.
-    if (payload.ok === true) return [{ s: "gestionprojet", n: "gestionprojet" }];
     return [];
   } catch {
     return [];

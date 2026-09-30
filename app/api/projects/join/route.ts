@@ -1,13 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  LEGACY_SLUG,
-  cleanProjectName,
-  getProject,
-  safeEqual,
-  setProjectPassword,
-  slugify,
-  verifyPassword,
-} from "@/lib/projects";
+import { cleanProjectName, getProject, slugify, verifyPassword } from "@/lib/projects";
 import { getIp, readJson } from "@/lib/request";
 import { blockedSeconds, failureCount, registerFailure, registerSuccess } from "@/lib/rate-limit";
 import { turnstileEnabled, verifyTurnstile } from "@/lib/turnstile";
@@ -50,14 +42,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Connexion impossible pour le moment." }, { status: 502 });
   }
 
-  let ok = false;
-  if (project?.hash) {
-    ok = await verifyPassword(password, project.hash);
-  } else if (project && slug === LEGACY_SLUG && process.env.SITE_PASSWORD) {
-    // Ancien projet : le mot de passe commun devient son mot de passe enregistré.
-    ok = safeEqual(password, process.env.SITE_PASSWORD);
-    if (ok) await setProjectPassword(slug, project.name, password).catch(() => {});
-  }
+  const ok = project?.hash ? await verifyPassword(password, project.hash) : false;
 
   if (!project || !ok) {
     registerFailure(key);

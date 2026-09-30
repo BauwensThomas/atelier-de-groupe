@@ -23,7 +23,6 @@ Les secrets sont lus uniquement côté serveur. Aucune variable secrète ne comm
 | --- | --- |
 | `LIVEBLOCKS_SECRET_KEY` | Clé secrète Liveblocks (commence par `sk_`) |
 | `AUTH_SECRET` | Clé qui signe les cookies et les liens de décision (32 caractères minimum) |
-| `SITE_PASSWORD` | Ancien mot de passe commun : sert seulement à la première connexion au projet d'origine `gestionprojet` |
 | `RESEND_API_KEY` | Clé Resend pour envoyer les e-mails de demande de projet |
 | `ADMIN_EMAIL` | Adresse qui reçoit les demandes de projet |
 | `MAIL_FROM` | Facultatif : expéditeur d'un domaine vérifié chez Resend (permet de prévenir aussi le demandeur) |
@@ -56,16 +55,10 @@ Le plan gratuit suffit pour un groupe de 4.
 
    La clé est copiée dans le presse-papiers : la coller après `AUTH_SECRET=`.
 3. Coller la clé Liveblocks après `LIVEBLOCKS_SECRET_KEY=`.
-4. Choisir un mot de passe commun et l'écrire après `SITE_PASSWORD=`.
-5. Enregistrer le fichier.
-
-Résultat attendu (avec vos valeurs, sans guillemets) :
-
-```
-LIVEBLOCKS_SECRET_KEY=sk_...
-SITE_PASSWORD=...
-AUTH_SECRET=...
-```
+4. Resend (https://resend.com) : créer une clé "Sending access" et la coller après `RESEND_API_KEY=`. Mettre l'adresse du compte Resend après `ADMIN_EMAIL=`.
+5. Facultatif, pour écrire aussi aux demandeurs : vérifier un domaine chez Resend (ici `atelier.belgacai.com`) et remplir `MAIL_FROM="Atelier de groupe <noreply@atelier.belgacai.com>"`.
+6. Facultatif, anti-robot : créer un widget Cloudflare Turnstile (mode Managed) et remplir `TURNSTILE_SECRET_KEY` et `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. En local, on peut utiliser les clés de test officielles de Cloudflare (`1x00000000000000000000AA` et `1x0000000000000000000000000000000AA`).
+7. Enregistrer le fichier, puis relancer `npm run dev`.
 
 ## 3. Lancer en local
 
@@ -78,48 +71,32 @@ Puis ouvrir http://localhost:3000 : la page d'accueil permet de rejoindre ou de 
 
 ## 4. Déployer sur Vercel
 
-1. Créer un dépôt GitHub vide (bouton "New" sur github.com), sans README.
-2. Dans le terminal du projet :
+Le code est dans un dépôt GitHub privé. Vercel l'importe et redéploie automatiquement à chaque `git push` sur `main`.
 
-   ```bash
-   git init
-   git status
-   ```
-
-   Vérifier que `.env.local` et le dossier `MD` n'apparaissent pas dans la liste. Puis :
-
-   ```bash
-   git add .
-   git commit -m "Premier commit"
-   git branch -M main
-   git remote add origin https://github.com/VOTRE-COMPTE/VOTRE-DEPOT.git
-   git push -u origin main
-   ```
-
-3. Aller sur https://vercel.com et se connecter avec GitHub.
-4. Cliquer sur "Add New..." puis "Project".
-5. Dans la liste, cliquer sur "Import" à côté du dépôt.
-6. Ouvrir la section "Environment Variables" et ajouter les trois variables, une par une (Key, Value, puis "Add") : `LIVEBLOCKS_SECRET_KEY`, `SITE_PASSWORD`, `AUTH_SECRET`. On peut réutiliser les mêmes valeurs qu'en local, ou générer un autre `AUTH_SECRET`.
-7. Cliquer sur "Deploy" et attendre la fin.
-8. Cliquer sur l'aperçu ou sur "Continue to Dashboard" puis "Visit" : l'adresse est en `.vercel.app`.
+1. Sur https://vercel.com : "Add New...", puis "Project", puis "Import" à côté du dépôt.
+2. Project Name : `ateliergroupe` (adresse `ateliergroupe.vercel.app`, à autoriser dans le widget Turnstile).
+3. Section "Environment Variables" : coller tout le contenu de `.env.local` dans la première case "Key", Vercel crée une ligne par variable. Points importants :
+   - `AUTH_SECRET` doit être identique à celui utilisé pour créer les projets : il chiffre aussi les mots de passe gardés pour les e-mails.
+   - Mettre les vraies clés Turnstile (pas les clés de test).
+4. Cliquer sur "Deploy".
 
 Pour changer une variable plus tard : projet Vercel, onglet "Settings", puis "Environment Variables". Il faut ensuite relancer un déploiement (onglet "Deployments", menu "..." du dernier déploiement, "Redeploy").
 
 ## 5. Tester à deux
 
-1. Ouvrir le site dans deux navigateurs différents (par exemple Chrome et Firefox, ou une fenêtre normale et une fenêtre privée).
-2. Se connecter avec le mot de passe dans les deux.
-3. Choisir un prénom et une couleur dans le premier, puis dans le second : la couleur du premier doit être grisée.
-4. Dans le panneau de droite, chacun doit voir l'autre dans "En ligne".
-5. Écrire dans le même paragraphe depuis les deux navigateurs : le texte apparaît en direct chez l'autre, chacun dans sa couleur, avec le curseur de l'autre et son prénom.
-6. Cliquer sur "Question" (ou Ctrl+Alt+Q), écrire une question, puis cliquer en dessous : le bloc se verrouille. Essayer d'écrire dedans : le message "Question verrouillée" apparaît.
-7. Recharger la page : le contenu est toujours là (sauvegardé par Liveblocks).
-8. Tester "Exporter en Word" et "Imprimer / PDF".
+1. Sur l'accueil, onglet "Demander un projet" : remplir le formulaire. L'administrateur reçoit un e-mail et accepte la demande.
+2. Ouvrir le site dans deux navigateurs différents (par exemple une fenêtre normale et une fenêtre privée), et rejoindre le projet dans les deux (nom + mot de passe).
+3. Choisir un prénom et une couleur dans chacun : la couleur du premier doit être grisée dans le second.
+4. Dans le panneau de droite, chacun doit voir l'autre dans "Membres".
+5. Écrire dans le même paragraphe depuis les deux navigateurs : le texte apparaît en direct chez l'autre, chacun dans sa couleur, avec le curseur et le prénom de l'autre.
+6. Ajouter une "Question" et un "Sujet", effacer le texte de l'autre (il reste barré), tester "Versions", "Exporter en Word" et "Imprimer / PDF".
 
 ## Sécurité
 
 - Aucun secret dans le code : tout vient des variables d'environnement, lues côté serveur.
 - `/api/projects/join` vérifie le mot de passe (empreinte scrypt), bloque pendant 10 minutes après 5 échecs par IP et par projet, demande Turnstile après 3 échecs si configuré, puis pose un cookie httpOnly signé (JWT) listant les projets rejoints.
 - `/api/projects/request` exige Turnstile si configuré et limite à 3 demandes par heure et par IP.
+- `/api/projects/forgot` envoie le mot de passe uniquement à l'adresse qui a créé le projet, avec la même réponse que l'adresse soit connue ou non.
+- Les mots de passe sont stockés en empreinte scrypt (connexion) et chiffrés en AES-256-GCM (pour les e-mails), dans les informations privées des salons Liveblocks.
 - `proxy.ts` (le middleware de Next.js 16) protège les pages de projet `/p/...` : il faut avoir rejoint le projet.
 - `/api/liveblocks-auth` ne donne accès qu'aux salons des projets présents dans le cookie.
