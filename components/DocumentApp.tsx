@@ -31,6 +31,7 @@ import {
 import { VersionsDialog } from "./VersionsDialog";
 import { IdleGuard } from "./IdleGuard";
 import { useConfirm } from "./ConfirmDialog";
+import { ExportChoiceDialog, printWithMode, type ColorMode } from "./PrintDialog";
 import { Editor } from "./Editor";
 import { IdentityDialog } from "./IdentityDialog";
 import { Loading } from "./Loading";
@@ -282,17 +283,23 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     [editor, identityRef, provider, log],
   );
   const [exporting, setExporting] = useState(false);
+  // Fenêtre de choix "En couleur / Tout en noir" avant l'export Word ou l'impression.
+  const [exportChoice, setExportChoice] = useState<"word" | "print" | null>(null);
 
-  async function onExport() {
+  async function onExport(mode: ColorMode) {
     if (!editor) return;
     setExporting(true);
     try {
       const { exportToDocx } = await import("@/lib/export-docx");
       const doc = provider.getYDoc();
-      await exportToDocx(editor.getJSON(), {
-        title: doc.getText("title").toString().trim(),
-        authors: doc.getText("authors").toString().trim(),
-      });
+      await exportToDocx(
+        editor.getJSON(),
+        {
+          title: doc.getText("title").toString().trim(),
+          authors: doc.getText("authors").toString().trim(),
+        },
+        mode,
+      );
     } catch {
       await confirm({ title: "Export impossible", message: "L'export a échoué. Réessaie.", confirmLabel: "OK", cancelLabel: null });
     }
@@ -375,8 +382,8 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
             canExport={Boolean(editor)}
             exporting={exporting}
             onEdit={() => setEditing(true)}
-            onExport={onExport}
-            onPrint={() => window.print()}
+            onExport={() => setExportChoice("word")}
+            onPrint={() => setExportChoice("print")}
             onOpenVersions={() => setVersionsOpen(true)}
             versionsCount={versions.length}
             onLeave={onLeave}
@@ -396,6 +403,14 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
           <Lock size={14} aria-hidden />
           Question verrouillée
         </div>
+      )}
+
+      {exportChoice && (
+        <ExportChoiceDialog
+          kind={exportChoice}
+          onChoose={(mode) => (exportChoice === "word" ? onExport(mode) : printWithMode(mode))}
+          onClose={() => setExportChoice(null)}
+        />
       )}
 
       {versionsOpen && (

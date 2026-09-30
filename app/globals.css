@@ -327,6 +327,21 @@ body {
     print-color-adjust: exact;
   }
 
+  /* Option "Tout en noir" (choisie avant l'impression) */
+  body.print-black .tiptap,
+  body.print-black .tiptap * {
+    color: #000 !important;
+  }
+
+  body.print-black .subject-block {
+    background: #d9d9d9 !important;
+  }
+
+  body.print-black .subject-block .question-label,
+  body.print-black .subject-block .question-date {
+    color: #595959 !important;
+  }
+
   .tiptap {
     min-height: 0;
   }

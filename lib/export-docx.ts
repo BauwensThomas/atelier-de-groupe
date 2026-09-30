@@ -38,6 +38,9 @@ type Context = {
 };
 
 let instanceCounter = 0;
+/** "color" : texte dans la couleur de son auteur ; "black" : tout en noir. */
+export type ColorMode = "color" | "black";
+let colorMode: ColorMode = "black";
 
 function runs(node: JSONContent, ctx: Context): TextRun[] {
   const result: TextRun[] = [];
@@ -55,24 +58,33 @@ function runs(node: JSONContent, ctx: Context): TextRun[] {
         text: child.text,
         bold: ctx.inHeader || marks.some((m) => m.type === "bold") || undefined,
         italics: marks.some((m) => m.type === "italic") || undefined,
-        color: textColor(ctx),
+        color: textColor(ctx, marks),
       }),
     );
   }
   return result;
 }
 
-// Même rendu que dans l'éditeur : carte gris clair (question) ou gris foncé avec texte blanc (sujet).
-const BLOCK_FILL = { question: "F3F3F3", sujet: "3F3F3F" } as const;
+// Cartes : gris clair (question) ; sujet gris foncé avec texte blanc en couleur, gris moyen en noir et blanc.
+function blockFill(kind: "question" | "sujet"): string {
+  if (kind === "question") return "F3F3F3";
+  return colorMode === "color" ? "3F3F3F" : "D9D9D9";
+}
 
-function textColor(ctx: Context): string {
-  return ctx.block === "sujet" ? "FFFFFF" : BLACK;
+function textColor(ctx: Context, marks: JSONContent["marks"] = []): string {
+  if (ctx.block === "sujet") return colorMode === "color" ? "FFFFFF" : BLACK;
+  if (ctx.block === "question" || colorMode === "black") return BLACK;
+  // Couleur de l'auteur, comme dans l'éditeur.
+  const author = (marks ?? []).find((m) => m.type === "author");
+  const color = typeof author?.attrs?.color === "string" ? author.attrs.color : "";
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? color.slice(1).toUpperCase() : BLACK;
 }
 
 function blockStyle(kind: "question" | "sujet"): Partial<IParagraphOptions> {
-  const edge = { style: BorderStyle.SINGLE, size: 1, color: BLOCK_FILL[kind], space: 6 };
+  const fill = blockFill(kind);
+  const edge = { style: BorderStyle.SINGLE, size: 1, color: fill, space: 6 };
   return {
-    shading: { type: ShadingType.CLEAR, color: "auto", fill: BLOCK_FILL[kind] },
+    shading: { type: ShadingType.CLEAR, color: "auto", fill },
     border: { top: edge, bottom: edge, left: edge, right: edge },
     indent: { left: 120, right: 120 },
   };
@@ -149,7 +161,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
 
       case "question": {
         const kind = node.attrs?.kind === "sujet" ? "sujet" : "question";
-        const labelColor = kind === "sujet" ? "BDBDBD" : "737373";
+        const labelColor = kind === "sujet" && colorMode === "color" ? "BDBDBD" : kind === "sujet" ? "595959" : "737373";
         out.push(
           new Paragraph({
             ...blockStyle(kind),
@@ -231,8 +243,9 @@ function titlePage(meta: DocMeta): Paragraph[] {
   return out;
 }
 
-export function buildDocx(json: JSONContent, meta: DocMeta): Document {
+export function buildDocx(json: JSONContent, meta: DocMeta, mode: ColorMode = "black"): Document {
   instanceCounter = 0;
+  colorMode = mode;
   const title = meta.title || "Atelier de groupe";
   const children = [
     ...titlePage(meta),
@@ -289,10 +302,10 @@ export function buildDocx(json: JSONContent, meta: DocMeta): Document {
   });
 }
 
-export async function exportToDocx(json: JSONContent, meta: DocMeta): Promise<void> {
+export async function exportToDocx(json: JSONContent, meta: DocMeta, mode: ColorMode = "black"): Promise<void> {
   const fileName =
     meta.title.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "gestion-de-projet";
-  const blob = await Packer.toBlob(buildDocx(json, meta));
+  const blob = await Packer.toBlob(buildDocx(json, meta, mode));
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
