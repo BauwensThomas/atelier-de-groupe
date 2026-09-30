@@ -148,11 +148,15 @@ export default function HelpPage() {
         <Section n={7} title="Rendre le travail">
           <Points>
             <li>
-              <strong>« Exporter en Word »</strong> : un fichier .docx tout en noir, avec le titre, les auteurs et les
-              numéros de page.
+              <strong>« Exporter en Word »</strong> : un fichier .docx avec le titre, les auteurs et les numéros de page.
             </li>
             <li>
               <strong>« Imprimer / PDF »</strong> : pour imprimer, ou enregistrer en PDF.
+            </li>
+            <li>
+              Pour les deux, tu choisis : <strong>« En couleur »</strong> (chaque texte dans la couleur de son auteur,
+              pour voir qui a écrit quoi) ou <strong>« Tout en noir »</strong> (version propre pour le rendu final). Le
+              texte barré n&apos;apparaît jamais.
             </li>
           </Points>
         </Section>
