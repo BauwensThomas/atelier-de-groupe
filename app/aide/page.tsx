@@ -161,6 +161,12 @@ export default function HelpPage() {
           <h2 className="mb-3 text-base font-semibold text-white">Bon à savoir</h2>
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
+              <strong className="text-white">Pas d&apos;e-mail ?</strong> Regarde dans le courrier indésirable (et
+              l&apos;onglet « Autres » dans Outlook), puis ajoute{" "}
+              <strong className="text-white">noreply@atelier.belgacai.com</strong> à tes expéditeurs approuvés pour
+              recevoir les prochains.
+            </li>
+            <li>
               <strong className="text-white">Inactivité</strong> : après 5 minutes sans rien faire, tu es déconnecté.
               Clique sur « Reprendre », pas besoin du mot de passe.
             </li>
