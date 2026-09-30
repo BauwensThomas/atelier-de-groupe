@@ -3,6 +3,7 @@
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
 import { Lock, LockOpen, Trash2 } from "lucide-react";
 import type { MouseEvent } from "react";
+import { useConfirm } from "./ConfirmDialog";
 
 /** "2026-09-30" devient "30 septembre 2026". */
 export function formatDate(iso: unknown): string {
@@ -12,6 +13,7 @@ export function formatDate(iso: unknown): string {
 }
 
 export function QuestionView({ node, editor, getPos }: ReactNodeViewProps) {
+  const confirm = useConfirm();
   const locked = Boolean(node.attrs.locked);
   const isSubject = node.attrs.kind === "sujet";
   const label = isSubject ? "Sujet" : "Question";
@@ -32,11 +34,18 @@ export function QuestionView({ node, editor, getPos }: ReactNodeViewProps) {
     editor.commands.setQuestionDate(pos, value || null);
   }
 
-  function remove() {
+  async function remove() {
+    const what = isSubject ? "ce sujet" : "cette question";
+    const ok = await confirm({
+      title: `Supprimer ${what} ?`,
+      message: "Le bloc et son contenu seront supprimés.",
+      confirmLabel: "Supprimer",
+      danger: true,
+    });
+    if (!ok) return;
+    // Position relue après la confirmation (le document a pu changer entre-temps).
     const pos = getPos();
     if (typeof pos !== "number") return;
-    const what = isSubject ? "ce sujet" : "cette question";
-    if (!window.confirm(`Supprimer ${what} et son contenu ?`)) return;
     editor.chain().focus().deleteQuestion(pos).run();
   }
 

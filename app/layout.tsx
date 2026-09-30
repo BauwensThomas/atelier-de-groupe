@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -15,7 +16,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full bg-neutral-100 text-neutral-900">
-        {children}
+        <ConfirmProvider>{children}</ConfirmProvider>
         {/* Statistiques de visite Vercel (sans cookie) */}
         <Analytics />
       </body>

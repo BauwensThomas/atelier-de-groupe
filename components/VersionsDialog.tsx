@@ -10,6 +10,7 @@ import { AuthorMark } from "@/lib/editor/author-mark";
 import { DeletedMark } from "@/lib/editor/track-deletions";
 import { Question } from "@/lib/editor/question";
 import { describeReason, type Version } from "@/lib/versions";
+import { useConfirm } from "./ConfirmDialog";
 
 type Props = {
   versions: Version[];
@@ -41,7 +42,7 @@ function Preview({ version }: { version: Version }) {
     ],
   });
   return (
-    <div className="page pointer-events-none mx-auto !min-h-0 select-none">
+    <div className="page pointer-events-none mx-auto min-h-0! select-none">
       {(version.title || version.authors) && (
         <header className="mb-6 border-b border-neutral-200 pb-4 text-center">
           {version.title && <p className="text-2xl font-bold">{version.title}</p>}
@@ -57,6 +58,7 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore }: Prop
   const sorted = useMemo(() => [...versions].sort((a, b) => b.t - a.t), [versions]);
   const [selectedId, setSelectedId] = useState<string | null>(sorted[0]?.id ?? null);
   const [message, setMessage] = useState("");
+  const confirm = useConfirm();
   const selected = sorted.find((v) => v.id === selectedId) ?? sorted[0] ?? null;
 
   useEffect(() => {
@@ -71,10 +73,12 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore }: Prop
     setMessage(onSaveNow() ? "Version enregistrée." : "Rien n'a changé depuis la dernière version.");
   }
 
-  function restore(version: Version) {
-    const ok = window.confirm(
-      `Remettre le document comme le ${when(version.t)} ?\n\nLa version actuelle est enregistrée avant : tu pourras revenir en arrière.`,
-    );
+  async function restore(version: Version) {
+    const ok = await confirm({
+      title: "Restaurer cette version ?",
+      message: `Le document redevient comme le ${when(version.t)}. La version actuelle est enregistrée avant : tu pourras revenir en arrière.`,
+      confirmLabel: "Restaurer",
+    });
     if (!ok) return;
     onRestore(version);
     onClose();
@@ -86,7 +90,7 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore }: Prop
         role="dialog"
         aria-modal="true"
         aria-labelledby="versions-title"
-        className="flex h-full max-h-[900px] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-xl"
+        className="flex h-full max-h-225 w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-xl"
       >
         <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-4 py-3">
           <h2 id="versions-title" className="flex items-center gap-2 text-base font-semibold">

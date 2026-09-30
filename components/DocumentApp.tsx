@@ -30,6 +30,7 @@ import {
 } from "@/lib/versions";
 import { VersionsDialog } from "./VersionsDialog";
 import { IdleGuard } from "./IdleGuard";
+import { useConfirm } from "./ConfirmDialog";
 import { Editor } from "./Editor";
 import { IdentityDialog } from "./IdentityDialog";
 import { Loading } from "./Loading";
@@ -173,12 +174,19 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     updateMyPresence({ typing });
   }, [typing, updateMyPresence]);
 
+  const confirm = useConfirm();
   const onRemoveMember = useCallback(
-    (person: Person) => {
-      if (!window.confirm(`Retirer ${person.name} de la liste des membres ?`)) return;
+    async (person: Person) => {
+      const ok = await confirm({
+        title: `Retirer ${person.name} de la liste ?`,
+        message: "La personne disparaît de la liste des membres. Elle pourra revenir avec le mot de passe.",
+        confirmLabel: "Retirer",
+        danger: true,
+      });
+      if (!ok) return;
       for (const id of person.memberIds) removeMember(provider.getYDoc(), id);
     },
-    [provider],
+    [provider, confirm],
   );
 
   const takenColors = useMemo(
@@ -286,7 +294,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
         authors: doc.getText("authors").toString().trim(),
       });
     } catch {
-      window.alert("L'export a échoué. Réessaie.");
+      await confirm({ title: "Export impossible", message: "L'export a échoué. Réessaie.", confirmLabel: "OK", cancelLabel: null });
     }
     setExporting(false);
   }
@@ -299,12 +307,14 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
 
   // Quitter le projet : on sort du groupe (retiré de la liste des membres).
   async function onLeave() {
-    if (
-      !window.confirm(
-        `Quitter le projet "${project.name}" ? Tu seras retiré des membres, et il faudra le mot de passe pour revenir.\n\nPour simplement fermer ta session, utilise plutôt "Se déconnecter".`,
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: `Quitter le projet "${project.name}" ?`,
+      message:
+        'Tu seras retiré des membres, et il faudra le mot de passe pour revenir.\n\nPour simplement fermer ta session, utilise plutôt "Se déconnecter".',
+      confirmLabel: "Quitter le projet",
+      danger: true,
+    });
+    if (!ok) return;
     // On retire sa fiche de la liste des membres, et on attend qu'elle soit bien envoyée (3 s max).
     if (myId) {
       removeMember(provider.getYDoc(), myId);

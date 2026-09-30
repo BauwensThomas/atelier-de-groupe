@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
+import { useConfirm } from "./ConfirmDialog";
 
 type Handover = { name: string; password: string | null; email: string; loginUrl: string };
 
@@ -11,9 +12,19 @@ export function DecisionButtons({ token }: { token: string }) {
   const [mailed, setMailed] = useState(false);
   const [handover, setHandover] = useState<Handover | null>(null);
   const [error, setError] = useState("");
+  const confirm = useConfirm();
 
   async function decide(action: "accept" | "refuse") {
-    if (action === "refuse" && !window.confirm("Refuser cette demande ? Le nom du projet redeviendra libre.")) return;
+    if (
+      action === "refuse" &&
+      !(await confirm({
+        title: "Refuser cette demande ?",
+        message: "Le projet est supprimé et son nom redevient libre.",
+        confirmLabel: "Refuser",
+        danger: true,
+      }))
+    )
+      return;
     setLoading(action);
     setError("");
     try {
