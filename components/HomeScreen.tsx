@@ -12,6 +12,11 @@ type Tab = "join" | "request";
 const inputClass =
   "w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/10";
 
+/** Nom de projet : chaque espace devient un trait d'union (sans doublon). */
+function projectNameInput(value: string): string {
+  return value.replace(/\s/g, "-").replace(/-{2,}/g, "-");
+}
+
 function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: string; hint?: ReactNode; children: ReactNode }) {
   return (
     <div className="mb-3">
@@ -152,7 +157,13 @@ function JoinForm({ initialProject }: { initialProject: string }) {
   return (
     <form onSubmit={onSubmit}>
       <Field label="Nom du projet" htmlFor="join-name">
-        <input id="join-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus={!initialProject} className={inputClass} />
+        <input
+          id="join-name"
+          value={name}
+          onChange={(e) => setName(projectNameInput(e.target.value))}
+          autoFocus={!initialProject}
+          className={inputClass}
+        />
       </Field>
       <Field label="Mot de passe" htmlFor="join-password">
         <input
@@ -273,7 +284,14 @@ function RequestForm({ onSent }: { onSent: (name: string) => void }) {
   return (
     <form onSubmit={onSubmit}>
       <Field label="Nom du projet" htmlFor="req-name" hint={nameHint}>
-        <input id="req-name" value={form.name} onChange={set("name")} maxLength={40} className={inputClass} autoFocus />
+        <input
+          id="req-name"
+          value={form.name}
+          onChange={(e) => setForm((f) => ({ ...f, name: projectNameInput(e.target.value) }))}
+          maxLength={40}
+          className={inputClass}
+          autoFocus
+        />
       </Field>
       <div className="grid gap-x-3 sm:grid-cols-3">
         <Field label="Prénom" htmlFor="req-first">
