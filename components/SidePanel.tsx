@@ -1,6 +1,6 @@
 "use client";
 
-import { FileDown, History, LayoutGrid, LogOut, Pencil, Printer, UserMinus, X } from "lucide-react";
+import { FileDown, History, LayoutGrid, LogOut, PanelRightClose, Pencil, Printer, UserMinus, X } from "lucide-react";
 import { ShareButton } from "./ShareButton";
 import type { Identity } from "@/lib/identity";
 import type { Activity } from "@/lib/activity";
@@ -43,6 +43,7 @@ type Props = {
   onLeave: () => void;
   onLogout: () => void;
   project: { slug: string; name: string };
+  onCollapse: () => void;
 };
 
 const SYNC_LABEL: Record<SyncState, { text: string; dot: string }> = {
@@ -65,10 +66,21 @@ export function SidePanel(props: Props) {
       <section className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-neutral-200">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Projet</h2>
-          <a href="/" className="flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-800">
-            <LayoutGrid size={12} aria-hidden />
-            Mes projets
-          </a>
+          <div className="flex items-center gap-1">
+            <a href="/" className="flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-800">
+              <LayoutGrid size={12} aria-hidden />
+              Mes projets
+            </a>
+            <button
+              type="button"
+              onClick={props.onCollapse}
+              title="Replier le panneau"
+              aria-label="Replier le panneau"
+              className="ml-1 hidden rounded p-0.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 lg:block"
+            >
+              <PanelRightClose size={15} aria-hidden />
+            </button>
+          </div>
         </div>
         <p className="mb-2 truncate text-sm font-semibold" title={props.project.name}>
           {props.project.name}

@@ -32,6 +32,7 @@ import { VersionsDialog } from "./VersionsDialog";
 import { IdleGuard } from "./IdleGuard";
 import { useConfirm } from "./ConfirmDialog";
 import { ExportChoiceDialog, printWithMode, type ColorMode } from "./PrintDialog";
+import { CollapsedPanel } from "./CollapsedPanel";
 import { Editor } from "./Editor";
 import { IdentityDialog } from "./IdentityDialog";
 import { Loading } from "./Loading";
@@ -283,6 +284,25 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     [editor, identityRef, provider, log],
   );
   const [exporting, setExporting] = useState(false);
+  // Panneau de droite replié ou non (choix retenu dans ce navigateur).
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPanelCollapsed(window.localStorage.getItem("gp.panelCollapsed") === "1");
+    } catch {
+      // stockage indisponible : panneau déplié
+    }
+  }, []);
+  const togglePanel = useCallback((collapsed: boolean) => {
+    setPanelCollapsed(collapsed);
+    try {
+      window.localStorage.setItem("gp.panelCollapsed", collapsed ? "1" : "0");
+    } catch {
+      // stockage indisponible : le choix vaut pour cette page seulement
+    }
+  }, []);
+
   // Fenêtre de choix "En couleur / Tout en noir" avant l'export Word ou l'impression.
   const [exportChoice, setExportChoice] = useState<"word" | "print" | null>(null);
 
@@ -371,9 +391,30 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
           )}
         </main>
 
-        {/* Panneau toujours visible pendant le défilement (avec sa propre barre s'il dépasse l'écran) */}
-        <aside className="no-print order-first lg:sticky lg:top-4 lg:order-0 lg:max-h-[calc(100vh-2rem)] lg:w-64 lg:shrink-0 lg:self-start lg:overflow-y-auto lg:p-px xl:w-72">
+        {/* Panneau toujours visible pendant le défilement (avec sa propre barre s'il dépasse l'écran).
+            Replié : colonne d'environ 1 cm (ordinateur seulement ; sur téléphone, le panneau reste complet). */}
+        <aside
+          className={`no-print order-first lg:sticky lg:top-4 lg:order-0 lg:max-h-[calc(100vh-2rem)] lg:shrink-0 lg:self-start lg:overflow-y-auto lg:p-px ${
+            panelCollapsed ? "lg:w-12" : "lg:w-64 xl:w-72"
+          }`}
+        >
+          {panelCollapsed && (
+            <div className="hidden lg:block">
+              <CollapsedPanel
+                people={people}
+                sync={sync}
+                project={project}
+                canExport={Boolean(editor)}
+                onExpand={() => togglePanel(false)}
+                onExport={() => setExportChoice("word")}
+                onPrint={() => setExportChoice("print")}
+                onOpenVersions={() => setVersionsOpen(true)}
+              />
+            </div>
+          )}
+          <div className={panelCollapsed ? "lg:hidden" : ""}>
           <SidePanel
+            onCollapse={() => togglePanel(true)}
             identity={identity}
             people={people}
             onRemoveMember={onRemoveMember}
@@ -390,6 +431,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
             onLogout={onLogout}
             project={project}
           />
+          </div>
         </aside>
       </div>
 

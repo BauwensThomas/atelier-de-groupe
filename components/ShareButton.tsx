@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, Share2 } from "lucide-react";
 
 // Partage le lien du projet : menu de partage du téléphone, sinon copie dans le presse-papiers.
-export function ShareButton({ slug, name }: { slug: string; name: string }) {
+export function ShareButton({ slug, name, compact = false }: { slug: string; name: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
 
   async function share() {
@@ -27,6 +27,20 @@ export function ShareButton({ slug, name }: { slug: string; name: string }) {
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={share}
+        title={copied ? "Lien copié" : "Partager le lien du projet"}
+        aria-label="Partager le lien du projet"
+        className="flex h-9 w-9 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-100"
+      >
+        {copied ? <Check size={16} className="text-green-600" aria-hidden /> : <Share2 size={16} aria-hidden />}
+      </button>
+    );
   }
 
   return (
