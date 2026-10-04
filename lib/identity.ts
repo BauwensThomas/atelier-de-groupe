@@ -1,12 +1,15 @@
-// Palette de 6 couleurs bien distinctes, lisibles sur fond blanc. Le noir est réservé aux questions,
-// le fuchsia au professeur (pas de violet ni de rose, trop proches).
+// Palette de 8 couleurs bien distinctes, lisibles sur fond blanc (choisies le 4 octobre 2026) : un seul bleu,
+// un seul vert, pas de marron, pas de noir (réservé aux questions), pas de violet ni de rose (le fuchsia est
+// réservé au professeur).
 export const PALETTE = [
   { value: "#2563eb", label: "Bleu" },
   { value: "#dc2626", label: "Rouge" },
-  { value: "#15803d", label: "Vert" },
+  { value: "#16a34a", label: "Vert" },
   { value: "#ea580c", label: "Orange" },
   { value: "#0891b2", label: "Turquoise" },
-  { value: "#854d0e", label: "Marron" },
+  { value: "#ca8a04", label: "Jaune doré" },
+  { value: "#f43f5e", label: "Corail" },
+  { value: "#6b7280", label: "Gris" },
 ] as const;
 
 /** Couleur réservée au professeur : absente de la palette, refusée par le serveur pour un élève. */
