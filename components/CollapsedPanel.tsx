@@ -1,7 +1,7 @@
 "use client";
 
-import { FileDown, Folder, History, ListTodo, MessageSquare, PanelRightOpen, Printer, Upload } from "lucide-react";
-import { useRef, type ReactNode } from "react";
+import { Check, FileDown, Folder, History, ListTodo, MessageSquare, PanelRightOpen, Printer, Upload } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
 import { Flyout } from "./Flyout";
 import { FileIcon } from "./FileIcon";
 import { FILE_TYPES } from "@/lib/file-types";
@@ -63,6 +63,9 @@ export function CollapsedPanel(props: Props) {
   const left = props.dueDate ? countdown(props.dueDate) : null;
   const upload = useRef<HTMLInputElement>(null);
   const openThreads = props.threads.filter((t) => !t.resolved);
+  const resolvedCount = props.threads.length - openThreads.length;
+  const [showResolved, setShowResolved] = useState(false);
+  const listed = showResolved ? props.threads : openThreads;
 
   return (
     <div className="flex flex-col items-center gap-2 rounded-lg bg-white py-2 shadow-sm ring-1 ring-neutral-200">
@@ -119,7 +122,7 @@ export function CollapsedPanel(props: Props) {
       {/* Commentaires : nombre de commentaires ouverts, et @ quand on est cité. */}
       <Flyout
         label="Commentaires"
-        title="Commentaires ouverts"
+        title="Commentaires"
         icon={<MessageSquare size={16} aria-hidden />}
         badge={
           props.unreadMentions.size > 0 ? (
@@ -131,10 +134,11 @@ export function CollapsedPanel(props: Props) {
           ) : null
         }
       >
-        {(close) =>
-          openThreads.length ? (
+        {(close) => (
+          <div className="flex flex-col gap-1">
+          {listed.length ? (
             <ul className="flex flex-col gap-0.5">
-              {openThreads.map((t) => (
+              {listed.map((t) => (
                 <li key={t.id}>
                   <button
                     type="button"
@@ -142,11 +146,12 @@ export function CollapsedPanel(props: Props) {
                       close();
                       props.onOpenThread(t.id);
                     }}
-                    className={`flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left text-xs hover:bg-neutral-100 ${t.prof ? "bg-fuchsia-50" : ""}`}
+                    className={`flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left text-xs hover:bg-neutral-100 ${t.prof ? "bg-fuchsia-50" : ""} ${t.resolved ? "opacity-60" : ""}`}
                   >
                     <span className="flex items-center gap-1.5">
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} aria-hidden />
                       <span className="font-medium">{t.name}</span>
+                      {t.resolved && <Check size={12} className="text-green-700" aria-label="Résolu" />}
                       {props.unreadMentions.has(t.id) && <span className="rounded bg-sky-600 px-1 text-[10px] font-semibold text-white">Cité</span>}
                     </span>
                     <span className="line-clamp-2 text-neutral-700">{t.text}</span>
@@ -155,9 +160,19 @@ export function CollapsedPanel(props: Props) {
               ))}
             </ul>
           ) : (
-            <p className="p-2 text-xs text-neutral-500">Aucun commentaire ouvert.</p>
-          )
-        }
+            <p className="p-2 text-xs text-neutral-500">{resolvedCount ? "Tout est résolu." : "Aucun commentaire."}</p>
+          )}
+          {resolvedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowResolved((v) => !v)}
+              className="self-start px-2 py-1 text-[11px] font-medium text-neutral-500 hover:text-neutral-800"
+            >
+              {showResolved ? "Cacher les résolus" : `Voir les résolus (${resolvedCount})`}
+            </button>
+          )}
+          </div>
+        )}
       </Flyout>
 
       {/* Fichiers du projet (pas pour le professeur) : ouvrir à côté du document, ou en ajouter. */}
