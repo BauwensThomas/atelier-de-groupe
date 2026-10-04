@@ -6,7 +6,8 @@ export const PALETTE = [
   { value: "#dc2626", label: "Rouge" },
   { value: "#16a34a", label: "Vert" },
   { value: "#ea580c", label: "Orange" },
-  { value: "#0891b2", label: "Turquoise" },
+  // Ancien turquoise gardé tel quel : les élèves qui l'avaient (Hajar) n'ont rien à rechoisir.
+  { value: "#0f766e", label: "Turquoise" },
   { value: "#ca8a04", label: "Jaune doré" },
   { value: "#f43f5e", label: "Corail" },
   { value: "#6b7280", label: "Gris" },
