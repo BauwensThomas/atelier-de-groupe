@@ -6,6 +6,7 @@ import { describeActivity, type Activity } from "@/lib/activity";
 const VISIBLE = 5;
 // Arrivées, départs et écriture ne sont plus affichés : la liste des membres les montre en direct.
 const HIDDEN: Activity["type"][] = ["join", "leave", "write"];
+const REPEAT_GAP_MS = 5 * 60 * 1000;
 
 function dayLabel(time: number): string {
   const date = new Date(time);
@@ -25,14 +26,27 @@ export function ActivityList({ items }: { items: Activity[] }) {
   const [expanded, setExpanded] = useState(false);
 
   // Plus récent en haut ; à heure égale, la dernière ligne ajoutée d'abord.
-  const sorted = useMemo(
-    () =>
-      items
-        .map((a, i) => ({ ...a, i, key: `${a.t}-${a.uid}-${i}` }))
-        .filter((a) => !HIDDEN.includes(a.type))
-        .sort((x, y) => y.t - x.t || y.i - x.i),
-    [items],
-  );
+  // La même action répétée par la même personne (moins de 5 min entre deux) tient sur une seule ligne.
+  const sorted = useMemo(() => {
+    const ordered = items
+      .map((a, i) => ({ ...a, i, key: `${a.t}-${a.uid}-${i}`, count: 1 }))
+      .filter((a) => !HIDDEN.includes(a.type))
+      .sort((x, y) => y.t - x.t || y.i - x.i);
+    const grouped: typeof ordered = [];
+    let oldest = 0; // heure de la plus ancienne répétition du groupe en cours
+    for (const a of ordered) {
+      const last = grouped[grouped.length - 1];
+      const same = last && last.uid === a.uid && last.type === a.type && last.detail === a.detail;
+      if (same && oldest - a.t <= REPEAT_GAP_MS) {
+        last.count += 1;
+        oldest = a.t;
+      } else {
+        grouped.push(a);
+        oldest = a.t;
+      }
+    }
+    return grouped;
+  }, [items]);
 
   const shown = expanded ? sorted : sorted.slice(0, VISIBLE);
   const groups: Array<{ day: string; entries: typeof sorted }> = [];
@@ -67,6 +81,7 @@ export function ActivityList({ items }: { items: Activity[] }) {
                       <span className="min-w-0 flex-1">
                         <span className="font-medium">{a.name}</span>{" "}
                         <span className="text-neutral-600">{describeActivity(a)}</span>
+                        {a.count > 1 && <span className="text-neutral-400"> ({a.count} fois)</span>}
                       </span>
                       <time className="shrink-0 text-[11px] text-neutral-400" dateTime={new Date(a.t).toISOString()}>
                         {hour(a.t)}
