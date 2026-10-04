@@ -14,6 +14,7 @@ import { Question } from "@/lib/editor/question";
 import { SafeDelete } from "@/lib/editor/safe-delete";
 import { DeletedMark } from "@/lib/editor/track-deletions";
 import { Pagination } from "@/lib/editor/pagination";
+import { Search } from "@/lib/editor/search";
 import { DocHeader } from "./DocHeader";
 import { Toolbar } from "./Toolbar";
 
@@ -65,6 +66,7 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
       Question.configure({ onBlocked: () => onBlockedRef.current() }),
       SafeDelete,
       Pagination,
+      Search,
     ],
     editorProps: {
       attributes: { spellcheck: "true", "aria-label": "Document du groupe" },

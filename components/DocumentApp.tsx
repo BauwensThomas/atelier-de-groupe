@@ -17,6 +17,7 @@ import { Lock, WifiOff } from "lucide-react";
 import { saveIdentity, type Identity } from "@/lib/identity";
 import { registerMember, removeMember, touchMember, useMembers } from "@/lib/members";
 import { describeTransaction, logActivity, purgeObsoleteActivity, useActivity } from "@/lib/activity";
+import { formatDueDate, setDueDate, useDueDate } from "@/lib/due-date";
 import { isRemote } from "@/lib/editor/shared";
 import {
   AUTO_INTERVAL_MS,
@@ -148,6 +149,16 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
       if (who && myId) logActivity(provider.getYDoc(), myId, who, type, detail);
     },
     [identityRef, myId, provider],
+  );
+
+  // Date de rendu, réglée par le groupe.
+  const dueDate = useDueDate(provider.getYDoc());
+  const onDueDateChange = useCallback(
+    (value: string | null) => {
+      setDueDate(provider.getYDoc(), value);
+      log("due-date", value ? formatDueDate(value) : undefined);
+    },
+    [provider, log],
   );
 
   // Inscription dans la liste des membres à l'ouverture.
@@ -409,6 +420,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
                 onExport={() => setExportChoice("word")}
                 onPrint={() => setExportChoice("print")}
                 onOpenVersions={() => setVersionsOpen(true)}
+                dueDate={dueDate}
               />
             </div>
           )}
@@ -430,6 +442,9 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
             onLeave={onLeave}
             onLogout={onLogout}
             project={project}
+            editor={editor}
+            dueDate={dueDate}
+            onDueDateChange={onDueDateChange}
           />
           </div>
         </aside>

@@ -18,8 +18,12 @@ import {
   Trash2,
   Undo2,
   RotateCcw,
+  Search,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { DocStats } from "./DocStats";
+import { SearchBar } from "./SearchBar";
+import { closeSearch } from "@/lib/editor/search";
 
 type ButtonProps = {
   label: string;
@@ -74,6 +78,21 @@ export function Toolbar({ editor }: { editor: Editor }) {
   });
 
   const off = !state.editable;
+  const [searching, setSearching] = useState(false);
+  const [searchTick, setSearchTick] = useState(0);
+
+  // Ctrl+F (Cmd+F sur Mac) ouvre notre recherche : celle du navigateur ne voit pas tout le document paginé.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setSearching(true);
+        setSearchTick((t) => t + 1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const chain = () => editor.chain().focus();
 
   return (
@@ -137,6 +156,13 @@ export function Toolbar({ editor }: { editor: Editor }) {
         <RotateCcw size={15} aria-hidden />
         Restaurer
       </ToolButton>
+      <ToolButton label="Rechercher (Ctrl+F)" wide active={searching} onClick={() => {
+          if (searching) closeSearch(editor);
+          setSearching(!searching);
+        }}>
+        <Search size={15} aria-hidden />
+        Rechercher
+      </ToolButton>
       <Separator />
       <ToolButton label="Annuler" disabled={off || !state.canUndo} onClick={() => chain().undo().run()}>
         <Undo2 size={16} aria-hidden />
@@ -166,6 +192,10 @@ export function Toolbar({ editor }: { editor: Editor }) {
           </ToolButton>
         </div>
       )}
+
+      <DocStats editor={editor} />
+
+      {searching && <SearchBar key={searchTick} editor={editor} onClose={() => setSearching(false)} />}
     </div>
   );
 }

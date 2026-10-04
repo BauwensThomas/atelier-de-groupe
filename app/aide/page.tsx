@@ -101,6 +101,20 @@ export default function HelpPage() {
               En haut du document : <strong>« Titre du projet »</strong> et <strong>« Auteurs »</strong>.
             </li>
             <li>La barre d&apos;outils permet de faire des titres, du gras, de l&apos;italique, des listes et des tableaux.</li>
+            <li>
+              <strong>« Rechercher »</strong> (ou Ctrl+F) trouve un mot dans tout le document. Entrée passe au résultat
+              suivant.
+            </li>
+            <li>
+              Le <strong>« Sommaire »</strong> du panneau de droite liste les sujets et les questions : un clic t&apos;y emmène.
+            </li>
+            <li>
+              Le nombre de <strong>mots</strong> et de <strong>pages</strong> est affiché au bout de la barre d&apos;outils.
+            </li>
+            <li>
+              Dans la carte <strong>« Projet »</strong>, ajoute la <strong>date de rendu</strong> : le compte à rebours
+              (J-5) est visible par tout le groupe.
+            </li>
           </Points>
         </Section>
 

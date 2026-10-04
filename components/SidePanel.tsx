@@ -5,6 +5,9 @@ import { ShareButton } from "./ShareButton";
 import type { Identity } from "@/lib/identity";
 import type { Activity } from "@/lib/activity";
 import { ActivityList } from "./ActivityList";
+import type { Editor } from "@tiptap/react";
+import { DueDate } from "./DueDate";
+import { Outline } from "./Outline";
 
 export type SyncState = "synced" | "syncing" | "connecting" | "offline";
 
@@ -44,6 +47,9 @@ type Props = {
   onLogout: () => void;
   project: { slug: string; name: string };
   onCollapse: () => void;
+  editor: Editor | null;
+  dueDate: string | null;
+  onDueDateChange: (value: string | null) => void;
 };
 
 const SYNC_LABEL: Record<SyncState, { text: string; dot: string }> = {
@@ -85,6 +91,7 @@ export function SidePanel(props: Props) {
         <p className="mb-2 truncate text-sm font-semibold" title={props.project.name}>
           {props.project.name}
         </p>
+        <DueDate value={props.dueDate} editable={Boolean(identity)} onChange={props.onDueDateChange} />
         <ShareButton slug={props.project.slug} name={props.project.name} />
       </section>
 
@@ -177,6 +184,8 @@ export function SidePanel(props: Props) {
           Versions{props.versionsCount ? ` (${props.versionsCount})` : ""}
         </button>
       </section>
+
+      {props.editor && <Outline editor={props.editor} />}
 
       <ActivityList items={props.activity} />
 

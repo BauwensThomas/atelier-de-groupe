@@ -23,7 +23,8 @@ export type ActivityType =
   | "title"
   | "authors"
   | "version-save"
-  | "version-restore";
+  | "version-restore"
+  | "due-date";
 
 export type Activity = {
   t: number;
@@ -228,5 +229,7 @@ export function describeActivity(a: Activity): string {
       return "a enregistré une version";
     case "version-restore":
       return a.detail ? `a restauré la version de ${a.detail}` : "a restauré une version";
+    case "due-date":
+      return a.detail ? `a fixé la date de rendu au ${a.detail}` : "a retiré la date de rendu";
   }
 }

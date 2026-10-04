@@ -370,3 +370,24 @@ body {
     break-inside: avoid;
   }
 }
+
+/* Recherche : tous les résultats en jaune, le résultat courant en orange */
+.tiptap .search-hit {
+  background-color: #fef08a;
+  border-radius: 2px;
+}
+
+.tiptap .search-current {
+  background-color: #fb923c;
+}
+
+@media print {
+  .tiptap .search-hit {
+    background-color: transparent !important;
+  }
+}
+
+/* Sommaire : le bloc visé ne passe pas sous la barre d'outils collante */
+.tiptap .question-block {
+  scroll-margin-top: 6rem;
+}

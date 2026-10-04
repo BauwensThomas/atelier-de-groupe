@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { describeActivity, type Activity } from "@/lib/activity";
+import { FoldSection } from "./FoldSection";
 
 const VISIBLE = 5;
 // Arrivées, départs et écriture ne sont plus affichés : la liste des membres les montre en direct.
@@ -58,8 +59,7 @@ export function ActivityList({ items }: { items: Activity[] }) {
   }
 
   return (
-    <section className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-neutral-200">
-      <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Activité</h2>
+    <FoldSection id="activity" title="Activité">
       {sorted.length === 0 ? (
         <p className="text-xs text-neutral-400">Rien pour le moment.</p>
       ) : (
@@ -103,6 +103,6 @@ export function ActivityList({ items }: { items: Activity[] }) {
           )}
         </>
       )}
-    </section>
+    </FoldSection>
   );
 }

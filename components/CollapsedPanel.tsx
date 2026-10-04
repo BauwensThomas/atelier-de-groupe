@@ -4,6 +4,7 @@ import { FileDown, History, PanelRightOpen, Printer } from "lucide-react";
 import type { ReactNode } from "react";
 import { ShareButton } from "./ShareButton";
 import type { Person, SyncState } from "./SidePanel";
+import { countdown, formatDueDate, useMinuteTick } from "@/lib/due-date";
 
 // Panneau replié (environ 1 cm) : statut, personnes connectées et raccourcis restent visibles.
 
@@ -16,6 +17,7 @@ type Props = {
   onExport: () => void;
   onPrint: () => void;
   onOpenVersions: () => void;
+  dueDate: string | null;
 };
 
 const SYNC: Record<SyncState, { text: string; dot: string }> = {
@@ -43,6 +45,8 @@ function IconButton({ label, onClick, disabled, children }: { label: string; onC
 export function CollapsedPanel(props: Props) {
   const online = props.people.filter((p) => p.online);
   const status = SYNC[props.sync];
+  useMinuteTick();
+  const left = props.dueDate ? countdown(props.dueDate) : null;
 
   return (
     <div className="flex flex-col items-center gap-2 rounded-lg bg-white py-2 shadow-sm ring-1 ring-neutral-200">
@@ -51,6 +55,15 @@ export function CollapsedPanel(props: Props) {
       </IconButton>
 
       <span className={`h-2.5 w-2.5 rounded-full ${status.dot}`} title={status.text} aria-label={status.text} role="status" />
+
+      {left && props.dueDate && (
+        <span
+          title={`Rendu le ${formatDueDate(props.dueDate)}`}
+          className={`rounded px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums ${left.tone}`}
+        >
+          {left.text === "Date dépassée" ? "Fini" : left.text === "Aujourd'hui" ? "J-0" : left.text}
+        </span>
+      )}
 
       <span className="h-px w-6 bg-neutral-200" aria-hidden />
 
