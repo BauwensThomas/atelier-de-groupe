@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronRight, Loader2, MailCheck, Users, X } from "lucide-react";
 import { Turnstile, turnstileActive } from "./Turnstile";
 
-type ProjectLink = { slug: string; name: string };
+type ProjectLink = { slug: string; name: string; prof?: boolean };
 type Props = { projects: ProjectLink[]; initialProject: string; year: number };
 type Tab = "join" | "request";
 
@@ -396,6 +396,8 @@ export function HomeScreen({ projects, initialProject, year }: Props) {
                     className="-mx-2 flex items-center justify-between rounded-md px-2 py-2 text-sm hover:bg-neutral-50"
                   >
                     <span className="truncate font-medium">{p.name}</span>
+                    {p.prof && <span className="ml-2 shrink-0 rounded bg-fuchsia-100 px-1.5 text-[11px] font-semibold text-fuchsia-800">Professeur</span>}
+                    <span className="flex-1" />
                     <ChevronRight size={16} className="shrink-0 text-neutral-400" aria-hidden />
                   </a>
                 </li>

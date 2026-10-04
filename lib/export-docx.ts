@@ -5,6 +5,7 @@ import {
   Document,
   Footer,
   HeadingLevel,
+  ImageRun,
   LevelFormat,
   Packer,
   PageNumber,
@@ -41,6 +42,13 @@ let instanceCounter = 0;
 /** "color" : texte dans la couleur de son auteur ; "black" : tout en noir. */
 export type ColorMode = "color" | "black";
 let colorMode: ColorMode = "black";
+
+/** Images du document, téléchargées avant de construire le fichier (adresse vers données et taille). */
+export type LoadedImage = { data: ArrayBuffer; type: "jpg" | "png" | "gif"; width: number; height: number };
+let loadedImages = new Map<string, LoadedImage>();
+// Largeur utile d'une page A4 avec les marges par défaut, en pixels.
+const IMAGE_MAX_WIDTH = 600;
+const IMAGE_MAX_HEIGHT = 800;
 
 function runs(node: JSONContent, ctx: Context): TextRun[] {
   const result: TextRun[] = [];
@@ -188,6 +196,31 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
         out.push(table(node, ctx));
         break;
 
+      case "image": {
+        const img = typeof node.attrs?.src === "string" ? loadedImages.get(node.attrs.src) : undefined;
+        if (!img) break;
+        // Taille choisie dans le document (25, 50, 75 ou 100 % de la largeur de la page).
+        const percent = [25, 50, 75, 100].includes(Number(node.attrs?.width)) ? Number(node.attrs?.width) : null;
+        // Sans taille choisie : taille d'origine, sans dépasser la page.
+        const scale = percent
+          ? Math.min((IMAGE_MAX_WIDTH * percent) / 100 / img.width, IMAGE_MAX_HEIGHT / img.height)
+          : Math.min(1, IMAGE_MAX_WIDTH / img.width, IMAGE_MAX_HEIGHT / img.height);
+        out.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 120, after: 120 },
+            children: [
+              new ImageRun({
+                type: img.type,
+                data: img.data,
+                transformation: { width: Math.round(img.width * scale), height: Math.round(img.height * scale) },
+              }),
+            ],
+          }),
+        );
+        break;
+      }
+
       default:
         if (node.content) out.push(...blocks(node.content, ctx));
     }
@@ -243,8 +276,14 @@ function titlePage(meta: DocMeta): Paragraph[] {
   return out;
 }
 
-export function buildDocx(json: JSONContent, meta: DocMeta, mode: ColorMode = "black"): Document {
+export function buildDocx(
+  json: JSONContent,
+  meta: DocMeta,
+  mode: ColorMode = "black",
+  images: Map<string, LoadedImage> = new Map(),
+): Document {
   instanceCounter = 0;
+  loadedImages = images;
   colorMode = mode;
   const title = meta.title || "Atelier de groupe";
   const children = [
@@ -302,10 +341,38 @@ export function buildDocx(json: JSONContent, meta: DocMeta, mode: ColorMode = "b
   });
 }
 
+/** Télécharge les images du document (une image introuvable est simplement laissée de côté). */
+async function loadImages(json: JSONContent): Promise<Map<string, LoadedImage>> {
+  const sources = new Set<string>();
+  const walk = (node: JSONContent) => {
+    if (node.type === "image" && typeof node.attrs?.src === "string") sources.add(node.attrs.src);
+    node.content?.forEach(walk);
+  };
+  walk(json);
+  const map = new Map<string, LoadedImage>();
+  await Promise.all(
+    [...sources].map(async (src) => {
+      try {
+        const res = await fetch(src);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const type = blob.type === "image/png" ? "png" : blob.type === "image/gif" ? "gif" : blob.type === "image/jpeg" ? "jpg" : null;
+        if (!type) return;
+        const bitmap = await createImageBitmap(blob);
+        map.set(src, { data: await blob.arrayBuffer(), type, width: bitmap.width, height: bitmap.height });
+        bitmap.close();
+      } catch {
+        // image manquante : ignorée
+      }
+    }),
+  );
+  return map;
+}
+
 export async function exportToDocx(json: JSONContent, meta: DocMeta, mode: ColorMode = "black"): Promise<void> {
   const fileName =
     meta.title.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "gestion-de-projet";
-  const blob = await Packer.toBlob(buildDocx(json, meta, mode));
+  const blob = await Packer.toBlob(buildDocx(json, meta, mode, await loadImages(json)));
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

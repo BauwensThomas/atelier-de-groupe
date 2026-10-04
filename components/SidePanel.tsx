@@ -8,6 +8,11 @@ import { ActivityList } from "./ActivityList";
 import type { Editor } from "@tiptap/react";
 import { DueDate } from "./DueDate";
 import { Outline } from "./Outline";
+import { TaskPanel, type TaskActions } from "./Tasks";
+import type { Task } from "@/lib/tasks";
+import type { Thread } from "@/lib/comments";
+import { CommentsPanel } from "./Comments";
+import { TeacherLinkButton } from "./TeacherLink";
 
 export type SyncState = "synced" | "syncing" | "connecting" | "offline";
 
@@ -20,6 +25,7 @@ export type Person = {
   online: boolean;
   typing: boolean;
   seen: number;
+  prof?: boolean;
 };
 
 function lastSeen(time: number): string {
@@ -50,6 +56,13 @@ type Props = {
   editor: Editor | null;
   dueDate: string | null;
   onDueDateChange: (value: string | null) => void;
+  tasks: Task[];
+  taskActions: TaskActions;
+  onOpenTasks: () => void;
+  threads: Thread[];
+  onOpenThread: (id: string) => void;
+  /** Professeur : lecture seule. */
+  readOnly: boolean;
 };
 
 const SYNC_LABEL: Record<SyncState, { text: string; dot: string }> = {
@@ -66,6 +79,9 @@ function Dot({ color }: { color: string }) {
 export function SidePanel(props: Props) {
   const { identity, people, sync, canExport, exporting } = props;
   const status = SYNC_LABEL[sync];
+  // Le professeur n'apparaît pas dans la liste des membres : seulement le bandeau "Professeur connecté".
+  const profOnline = people.filter((p) => p.prof && p.online && !p.me);
+  const members = people.filter((p) => !p.prof);
 
   return (
     <div className="flex flex-col gap-3 text-[13px]">
@@ -91,8 +107,17 @@ export function SidePanel(props: Props) {
         <p className="mb-2 truncate text-sm font-semibold" title={props.project.name}>
           {props.project.name}
         </p>
-        <DueDate value={props.dueDate} editable={Boolean(identity)} onChange={props.onDueDateChange} />
-        <ShareButton slug={props.project.slug} name={props.project.name} />
+        <DueDate value={props.dueDate} editable={Boolean(identity) && !props.readOnly} onChange={props.onDueDateChange} />
+        {props.readOnly ? (
+          <p className="rounded-md bg-fuchsia-50 px-2 py-1.5 text-xs text-fuchsia-900 ring-1 ring-fuchsia-200">
+            Accès professeur : lecture seule. Sélectionne un passage puis « Commenter » pour laisser une note.
+          </p>
+        ) : (
+          <>
+            <ShareButton slug={props.project.slug} name={props.project.name} />
+            <TeacherLinkButton slug={props.project.slug} />
+          </>
+        )}
       </section>
 
       <section className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-neutral-200">
@@ -115,10 +140,18 @@ export function SidePanel(props: Props) {
         </div>
       </section>
 
+      {profOnline.length > 0 && !props.readOnly && (
+        <p className="flex items-center gap-1.5 rounded-lg bg-fuchsia-50 px-3 py-2 text-xs font-medium text-fuchsia-900 ring-1 ring-fuchsia-200" role="status">
+          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-fuchsia-600" aria-hidden />
+          Professeur connecté{profOnline.length === 1 && profOnline[0].name ? ` : ${profOnline[0].name}` : ""}
+        </p>
+      )}
+
       <section className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-neutral-200">
         <div className="mb-1.5 flex items-center justify-between gap-2">
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-            Membres ({people.filter((p) => p.online).length} en ligne)
+            {/* Le professeur voit la liste du groupe, sans savoir qui est en ligne. */}
+            {props.readOnly ? "Membres du groupe" : `Membres (${members.filter((p) => p.online).length} en ligne)`}
           </h2>
           <span className="flex items-center gap-1 text-[11px] text-neutral-600" role="status">
             <span className={`h-2 w-2 rounded-full ${status.dot}`} aria-hidden />
@@ -126,7 +159,13 @@ export function SidePanel(props: Props) {
           </span>
         </div>
         <ul className="flex flex-col gap-1">
-          {people.map((p) => (
+          {members.map((p) =>
+            props.readOnly ? (
+              <li key={p.key} className="flex items-center gap-2">
+                <Dot color={p.color} />
+                <span className="truncate">{p.name || "Sans prénom"}</span>
+              </li>
+            ) : (
             <li key={p.key} className={`group flex items-center gap-2 ${p.online ? "" : "text-neutral-500"}`}>
               <span className="relative flex shrink-0">
                 <Dot color={p.color} />
@@ -152,10 +191,12 @@ export function SidePanel(props: Props) {
                 </button>
               )}
             </li>
-          ))}
+            ),
+          )}
         </ul>
       </section>
 
+      {!props.readOnly && (
       <section className="flex flex-col gap-2 rounded-lg bg-white p-3 shadow-sm ring-1 ring-neutral-200">
         <button
           type="button"
@@ -184,10 +225,15 @@ export function SidePanel(props: Props) {
           Versions{props.versionsCount ? ` (${props.versionsCount})` : ""}
         </button>
       </section>
+      )}
+
+      <CommentsPanel editor={props.editor} threads={props.threads} onOpen={props.onOpenThread} />
+
+      {!props.readOnly && <TaskPanel tasks={props.tasks} actions={props.taskActions} onOpenBoard={props.onOpenTasks} />}
 
       {props.editor && <Outline editor={props.editor} />}
 
-      <ActivityList items={props.activity} />
+      {!props.readOnly && <ActivityList items={props.activity} />}
 
       <div className="flex flex-col gap-1.5">
         <button
@@ -198,6 +244,7 @@ export function SidePanel(props: Props) {
           <LogOut size={14} aria-hidden />
           Se déconnecter
         </button>
+        {!props.readOnly && (
         <button
           type="button"
           onClick={props.onLeave}
@@ -206,6 +253,7 @@ export function SidePanel(props: Props) {
           <UserMinus size={14} aria-hidden />
           Quitter ce projet
         </button>
+        )}
       </div>
     </div>
   );

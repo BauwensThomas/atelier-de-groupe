@@ -5,8 +5,9 @@ export const SESSION_COOKIE = "gp_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 jours
 const MAX_PROJECTS = 30;
 
-/** Projet auquel on a accès : s = adresse (slug), n = nom affiché. */
-export type SessionProject = { s: string; n: string };
+/** Projet auquel on a accès : s = adresse (slug), n = nom affiché.
+ *  r = "prof" pour un accès par le lien professeur, k = empreinte courte de ce lien (pour pouvoir le révoquer). */
+export type SessionProject = { s: string; n: string; r?: "prof"; k?: string };
 
 function getKey(): Uint8Array {
   const secret = process.env.AUTH_SECRET;
@@ -30,9 +31,9 @@ export async function readSession(token: string | undefined): Promise<SessionPro
   try {
     const { payload } = await jwtVerify(token, getKey(), { algorithms: ["HS256"] });
     if (Array.isArray(payload.p)) {
-      return payload.p.filter(
-        (x): x is SessionProject => typeof x?.s === "string" && typeof x?.n === "string",
-      );
+      return payload.p
+        .filter((x): x is SessionProject => typeof x?.s === "string" && typeof x?.n === "string")
+        .map((x) => (x.r === "prof" && typeof x.k === "string" ? { s: x.s, n: x.n, r: "prof" as const, k: x.k } : { s: x.s, n: x.n }));
     }
     return [];
   } catch {

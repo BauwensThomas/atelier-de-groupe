@@ -1,5 +1,5 @@
 import "server-only";
-import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { Liveblocks, LiveblocksError } from "@liveblocks/node";
 import { open, seal } from "./secret-box";
 
@@ -95,6 +95,8 @@ export type Project = {
   request: ProjectRequest | null;
   /** Mot de passe déchiffré (pour l'e-mail d'acceptation et "mot de passe oublié"), ou null. */
   password: string | null;
+  /** Clé du lien professeur (déchiffrée), ou null si aucun lien n'a été créé. */
+  teacherKey: string | null;
 };
 
 function str(value: unknown): string {
@@ -119,7 +121,8 @@ function toProject(slug: string, meta: Record<string, unknown>): Project {
       }
     : null;
   const password = meta.gpPwd ? open(str(meta.gpPwd)) : null;
-  return { slug, name, hash, status, request, password };
+  const teacherKey = meta.gpProf ? open(str(meta.gpProf)) : null;
+  return { slug, name, hash, status, request, password, teacherKey };
 }
 
 /** Projets créés par cette adresse e-mail (recherche dans les informations privées des salons). */
@@ -168,7 +171,7 @@ export async function requestProject(name: string, password: string, request: Pr
       gpRequestedAt: request.requestedAt,
     },
   });
-  return { slug, name, hash, status: "pending", request, password };
+  return { slug, name, hash, status: "pending", request, password, teacherKey: null };
 }
 
 export async function approveProject(slug: string): Promise<void> {
@@ -178,5 +181,27 @@ export async function approveProject(slug: string): Promise<void> {
 
 export async function refuseProject(slug: string): Promise<void> {
   await getLiveblocks().deleteRoom(slug);
+  // Salon des commentaires (créé seulement si quelqu'un a ouvert le projet).
+  await getLiveblocks().deleteRoom(`${slug}--notes`).catch(() => {});
+}
+
+// Lien professeur : une clé aléatoire, gardée chiffrée dans les informations privées du salon.
+
+/** Crée (ou remplace) la clé du lien professeur. L'ancienne clé ne marche plus. */
+export async function renewTeacherKey(slug: string): Promise<string> {
+  const key = randomBytes(24).toString("base64url");
+  await getLiveblocks().updateRoom(slug, { metadata: { gpProf: seal(key) } });
+  return key;
+}
+
+/** Empreinte courte de la clé, gardée dans la session du professeur. */
+export function teacherKeyTag(key: string): string {
+  return createHash("sha256").update(`gp-prof:${key}`).digest("base64url").slice(0, 16);
+}
+
+export function sameKey(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
 }
 

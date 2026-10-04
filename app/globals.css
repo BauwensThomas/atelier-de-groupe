@@ -391,3 +391,77 @@ body {
 .tiptap .question-block {
   scroll-margin-top: 6rem;
 }
+
+/* Commentaires : passage surligné en jaune pâle, pastille avec le nombre de messages.
+   Notes du professeur en rose, bien distinctes des élèves. */
+.tiptap .comment-hl {
+  background-color: #fef9c3;
+  border-bottom: 2px solid #facc15;
+}
+
+.tiptap .comment-hl.comment-prof {
+  background-color: #fae8ff;
+  border-bottom-color: #d946ef;
+}
+
+.tiptap .comment-hl.comment-active {
+  background-color: #fde68a;
+}
+
+.tiptap .comment-hl.comment-prof.comment-active {
+  background-color: #f5d0fe;
+}
+
+.tiptap .comment-badge {
+  display: inline-block;
+  margin: 0 2px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background-color: #eab308;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  vertical-align: 2px;
+  cursor: pointer;
+  user-select: none;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-style: normal;
+  text-decoration: none;
+}
+
+.tiptap .comment-badge.comment-prof {
+  background-color: #c026d3;
+}
+
+@media print {
+  .tiptap .comment-badge {
+    display: none !important;
+  }
+
+  .tiptap .comment-hl {
+    background-color: transparent !important;
+    border-bottom: 0 !important;
+  }
+}
+
+/* Images du document : jamais plus larges que la page */
+.tiptap img {
+  display: block;
+  max-width: 100%;
+  max-height: 900px;
+  height: auto;
+  margin: 0.75rem auto;
+  border-radius: 4px;
+}
+
+.tiptap img.ProseMirror-selectednode {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+@media print {
+  .tiptap img {
+    break-inside: avoid;
+  }
+}

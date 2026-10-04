@@ -26,5 +26,5 @@ export default async function ProjectPage({ params }: Params) {
   // Projet supprimé ou pas encore accepté : retour à l'accueil.
   const stored = await getProject(slug).catch(() => null);
   if (!stored || stored.status !== "active") redirect("/");
-  return <WorkspaceClient roomId={project.s} projectName={project.n} />;
+  return <WorkspaceClient roomId={project.s} projectName={project.n} role={project.r === "prof" ? "prof" : undefined} />;
 }

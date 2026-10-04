@@ -6,16 +6,16 @@ import { getUserId, loadIdentity, type Identity } from "@/lib/identity";
 import { DocumentApp } from "./DocumentApp";
 import { Loading } from "./Loading";
 
-type Props = { roomId: string; projectName: string };
+type Props = { roomId: string; projectName: string; role?: "prof" };
 
-export function Workspace({ roomId, projectName }: Props) {
+export function Workspace({ roomId, projectName, role }: Props) {
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [ready, setReady] = useState(false);
   const identityRef = useRef<Identity | null>(null);
 
   // Le localStorage n'existe que dans le navigateur : on le lit après le premier rendu.
   useEffect(() => {
-    const stored = loadIdentity();
+    const stored = loadIdentity(role === "prof");
     identityRef.current = stored;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIdentity(stored);
@@ -33,13 +33,13 @@ export function Workspace({ roomId, projectName }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         room,
-        userId: getUserId(),
+        userId: getUserId(role === "prof"),
         name: identityRef.current?.name,
         color: identityRef.current?.color,
       }),
     });
     if (res.status === 401 || res.status === 403) {
-      window.location.href = `/?projet=${encodeURIComponent(roomId)}`;
+      window.location.href = role === "prof" ? "/?lien=expire" : `/?projet=${encodeURIComponent(roomId)}`;
       return { error: "forbidden" as const, reason: "Session expirée" };
     }
     if (res.status === 404) {
@@ -49,7 +49,7 @@ export function Workspace({ roomId, projectName }: Props) {
     }
     if (!res.ok) throw new Error("Autorisation Liveblocks impossible");
     return res.json();
-  }, [roomId]);
+  }, [roomId, role]);
 
   if (!ready) return <Loading text="Chargement…" />;
 
@@ -64,14 +64,14 @@ export function Workspace({ roomId, projectName }: Props) {
     >
       <RoomProvider
         id={roomId}
-        initialPresence={{ name: identity?.name ?? "", color: identity?.color ?? "" }}
+        initialPresence={{ name: identity?.name ?? "", color: identity?.color ?? "", prof: role === "prof" }}
       >
         <ClientSideSuspense fallback={<Loading text="Connexion au document…" />}>
           <DocumentApp
             identity={identity}
             identityRef={identityRef}
             onIdentityChange={changeIdentity}
-            project={{ slug: roomId, name: projectName }}
+            project={{ slug: roomId, name: projectName, role }}
           />
         </ClientSideSuspense>
       </RoomProvider>

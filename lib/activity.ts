@@ -24,7 +24,11 @@ export type ActivityType =
   | "authors"
   | "version-save"
   | "version-restore"
-  | "due-date";
+  | "due-date"
+  | "task-add"
+  | "task-done"
+  | "comment"
+  | "image";
 
 export type Activity = {
   t: number;
@@ -229,6 +233,14 @@ export function describeActivity(a: Activity): string {
       return "a enregistré une version";
     case "version-restore":
       return a.detail ? `a restauré la version de ${a.detail}` : "a restauré une version";
+    case "image":
+      return "a ajouté une image";
+    case "comment":
+      return "a ajouté un commentaire";
+    case "task-add":
+      return `a ajouté la tâche « ${a.detail ?? ""} »`;
+    case "task-done":
+      return `a fini la tâche « ${a.detail ?? ""} »`;
     case "due-date":
       return a.detail ? `a fixé la date de rendu au ${a.detail}` : "a retiré la date de rendu";
   }

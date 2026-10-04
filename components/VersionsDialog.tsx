@@ -9,6 +9,7 @@ import { History, RotateCcw, Save, X } from "lucide-react";
 import { AuthorMark } from "@/lib/editor/author-mark";
 import { DeletedMark } from "@/lib/editor/track-deletions";
 import { Question } from "@/lib/editor/question";
+import { DocImage } from "@/lib/editor/image";
 import { describeReason, type Version } from "@/lib/versions";
 import { useConfirm } from "./ConfirmDialog";
 
@@ -17,6 +18,8 @@ type Props = {
   onClose: () => void;
   onSaveNow: () => boolean;
   onRestore: (version: Version) => void;
+  /** Professeur : on regarde les versions sans pouvoir en créer ni en restaurer. */
+  readOnly?: boolean;
 };
 
 function when(t: number): string {
@@ -39,6 +42,7 @@ function Preview({ version }: { version: Version }) {
       AuthorMark,
       DeletedMark,
       Question,
+      DocImage,
     ],
   });
   return (
@@ -54,7 +58,7 @@ function Preview({ version }: { version: Version }) {
   );
 }
 
-export function VersionsDialog({ versions, onClose, onSaveNow, onRestore }: Props) {
+export function VersionsDialog({ versions, onClose, onSaveNow, onRestore, readOnly = false }: Props) {
   const sorted = useMemo(() => [...versions].sort((a, b) => b.t - a.t), [versions]);
   const [selectedId, setSelectedId] = useState<string | null>(sorted[0]?.id ?? null);
   const [message, setMessage] = useState("");
@@ -99,6 +103,7 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore }: Prop
           </h2>
           <div className="flex items-center gap-2">
             {message && <span className="text-xs text-neutral-500">{message}</span>}
+            {!readOnly && (
             <button
               type="button"
               onClick={saveNow}
@@ -107,6 +112,7 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore }: Prop
               <Save size={14} aria-hidden />
               Enregistrer une version
             </button>
+            )}
             <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-md p-1.5 hover:bg-neutral-100">
               <X size={17} aria-hidden />
             </button>
@@ -145,6 +151,7 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore }: Prop
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-4 py-2">
                   <span className="text-[13px] text-neutral-600">Aperçu du {when(selected.t)}</span>
+                  {!readOnly && (
                   <button
                     type="button"
                     onClick={() => restore(selected)}
@@ -153,6 +160,7 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore }: Prop
                     <RotateCcw size={14} aria-hidden />
                     Restaurer cette version
                   </button>
+                  )}
                 </div>
                 <div className="flex-1 overflow-y-auto bg-neutral-100 p-3 sm:p-6">
                   <Preview key={selected.id} version={selected} />

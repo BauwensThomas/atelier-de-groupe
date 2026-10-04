@@ -19,11 +19,14 @@ import {
   Undo2,
   RotateCcw,
   Search,
+  MessageSquarePlus,
+  ImagePlus,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DocStats } from "./DocStats";
 import { SearchBar } from "./SearchBar";
 import { closeSearch } from "@/lib/editor/search";
+import { IMAGE_SIZES, imageWidth, pickAndInsertImage } from "@/lib/editor/image";
 
 type ButtonProps = {
   label: string;
@@ -57,7 +60,15 @@ function Separator() {
   return <span className="mx-1 h-5 w-px bg-neutral-200" aria-hidden />;
 }
 
-export function Toolbar({ editor }: { editor: Editor }) {
+type Props = {
+  editor: Editor;
+  onComment?: () => void;
+  onUploadImage?: (file: File) => Promise<string | null>;
+  /** Professeur : seulement Rechercher et Commenter. */
+  readOnly?: boolean;
+};
+
+export function Toolbar({ editor, onComment, onUploadImage, readOnly = false }: Props) {
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -71,15 +82,24 @@ export function Toolbar({ editor }: { editor: Editor }) {
       ordered: e.isActive("orderedList"),
       inTable: e.isActive("table"),
       inQuestion: e.isActive("question"),
+      // Image sélectionnée (un clic dessus) et sa taille (null : taille d'origine).
+      imageSelected: e.isActive("image"),
+      imageSize: e.isActive("image") ? imageWidth(e.getAttributes("image").width) : null,
       struck: e.isActive("deleted") || (!e.state.selection.empty && !!e.schema.marks.deleted && e.state.doc.rangeHasMark(e.state.selection.from, e.state.selection.to, e.schema.marks.deleted)),
       canUndo: e.can().undo(),
       canRedo: e.can().redo(),
+      hasSelection: !e.state.selection.empty,
     }),
   });
 
   const off = !state.editable;
   const [searching, setSearching] = useState(false);
   const [searchTick, setSearchTick] = useState(0);
+  const commentRef = useRef<(() => void) | undefined>(undefined);
+  const canComment = Boolean(onComment) && state.hasSelection;
+  useEffect(() => {
+    commentRef.current = canComment ? onComment : undefined;
+  }, [canComment, onComment]);
 
   // Ctrl+F (Cmd+F sur Mac) ouvre notre recherche : celle du navigateur ne voit pas tout le document paginé.
   useEffect(() => {
@@ -88,6 +108,10 @@ export function Toolbar({ editor }: { editor: Editor }) {
         e.preventDefault();
         setSearching(true);
         setSearchTick((t) => t + 1);
+      } else if ((e.ctrlKey || e.metaKey) && e.altKey && e.code === "KeyM") {
+        // Ctrl+Alt+M : commenter la sélection.
+        e.preventDefault();
+        commentRef.current?.();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -97,6 +121,8 @@ export function Toolbar({ editor }: { editor: Editor }) {
 
   return (
     <div className="no-print sticky top-0 z-20 flex flex-wrap items-center gap-0.5 border-b border-neutral-200 bg-white/95 px-2 py-1.5 backdrop-blur">
+      {!readOnly && (
+      <>
       <ToolButton label="Titre 1" active={state.h1} disabled={off} onClick={() => chain().toggleHeading({ level: 1 }).run()}>
         <Heading1 size={17} aria-hidden />
       </ToolButton>
@@ -127,6 +153,11 @@ export function Toolbar({ editor }: { editor: Editor }) {
       >
         <TableIcon size={16} aria-hidden />
       </ToolButton>
+      {onUploadImage && (
+        <ToolButton label="Insérer une image (ou coller, ou glisser)" disabled={off} onClick={() => pickAndInsertImage(editor.view, onUploadImage)}>
+          <ImagePlus size={16} aria-hidden />
+        </ToolButton>
+      )}
       <Separator />
       <ToolButton
         label="Question (Ctrl+Alt+Q)"
@@ -156,6 +187,8 @@ export function Toolbar({ editor }: { editor: Editor }) {
         <RotateCcw size={15} aria-hidden />
         Restaurer
       </ToolButton>
+      </>
+      )}
       <ToolButton label="Rechercher (Ctrl+F)" wide active={searching} onClick={() => {
           if (searching) closeSearch(editor);
           setSearching(!searching);
@@ -163,6 +196,14 @@ export function Toolbar({ editor }: { editor: Editor }) {
         <Search size={15} aria-hidden />
         Rechercher
       </ToolButton>
+      {onComment && (
+        <ToolButton label="Commenter la sélection (Ctrl+Alt+M)" wide disabled={!canComment} onClick={onComment}>
+          <MessageSquarePlus size={15} aria-hidden />
+          Commenter
+        </ToolButton>
+      )}
+      {!readOnly && (
+      <>
       <Separator />
       <ToolButton label="Annuler" disabled={off || !state.canUndo} onClick={() => chain().undo().run()}>
         <Undo2 size={16} aria-hidden />
@@ -170,6 +211,28 @@ export function Toolbar({ editor }: { editor: Editor }) {
       <ToolButton label="Rétablir" disabled={off || !state.canRedo} onClick={() => chain().redo().run()}>
         <Redo2 size={16} aria-hidden />
       </ToolButton>
+      </>
+      )}
+
+      {state.imageSelected && !off && (
+        <div className="flex w-full flex-wrap items-center gap-0.5 border-t border-neutral-100 pt-1 sm:ml-auto sm:w-auto sm:border-0 sm:pt-0">
+          <span className="px-1.5 text-xs text-neutral-500">Taille :</span>
+          {IMAGE_SIZES.map((s) => (
+            <ToolButton
+              key={s.value}
+              label={`${s.label} (${s.value} %)`}
+              wide
+              active={state.imageSize === s.value}
+              onClick={() => chain().updateAttributes("image", { width: s.value }).run()}
+            >
+              {s.label}
+            </ToolButton>
+          ))}
+          <ToolButton label="Taille d'origine" wide active={state.imageSize === null} onClick={() => chain().updateAttributes("image", { width: null }).run()}>
+            Origine
+          </ToolButton>
+        </div>
+      )}
 
       {state.inTable && !off && (
         <div className="flex w-full flex-wrap items-center gap-0.5 border-t border-neutral-100 pt-1 sm:ml-auto sm:w-auto sm:border-0 sm:pt-0">

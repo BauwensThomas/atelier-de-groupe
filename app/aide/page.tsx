@@ -176,6 +176,41 @@ export default function HelpPage() {
           </Points>
         </Section>
 
+        <Section n={8} title="Tâches, commentaires, images">
+          <Points>
+            <li>
+              <strong>« Tâches »</strong> (panneau de droite) : ajoute une tâche, clique dessus pour choisir qui s&apos;en
+              charge et pour quand. Le rond change l&apos;état : à faire, en cours, fini. « Ouvrir le tableau » montre
+              les trois colonnes en grand.
+            </li>
+            <li>
+              <strong>Commenter</strong> : sélectionne un passage, puis <strong>« Commenter »</strong> dans la barre
+              d&apos;outils (ou Ctrl+Alt+M). Le passage est surligné en jaune, avec une pastille : clique dessus pour lire,
+              répondre ou marquer « résolu ».
+            </li>
+            <li>
+              <strong>Images</strong> : bouton image de la barre d&apos;outils, ou colle (Ctrl+V) ou glisse une image dans
+              la page. Clique sur une image pour choisir sa taille (petite, moyenne, grande, pleine largeur). Les images restent
+              privées au groupe.
+            </li>
+          </Points>
+        </Section>
+
+        <Section n={9} title="Le professeur">
+          <Points>
+            <li>
+              Dans la carte « Projet », <strong>« Lien professeur »</strong> donne un lien à envoyer à ton professeur. Il
+              n&apos;a pas besoin du mot de passe.
+            </li>
+            <li>
+              Avec ce lien, il <strong>lit le document sans pouvoir le modifier</strong>, et y laisse des{" "}
+              <strong>notes en rose</strong>. Réponds-lui, puis clique sur « Marquer corrigé » une fois la correction
+              faite.
+            </li>
+            <li>« Nouveau lien » coupe l&apos;accès de l&apos;ancien lien.</li>
+          </Points>
+        </Section>
+
         <section className="rounded-xl bg-neutral-900 p-5 text-sm leading-relaxed text-neutral-200">
           <h2 className="mb-3 text-base font-semibold text-white">Bon à savoir</h2>
           <ul className="list-disc space-y-1.5 pl-5">

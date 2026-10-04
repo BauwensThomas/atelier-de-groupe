@@ -20,7 +20,7 @@ export default async function Home({ searchParams }: Props) {
   const initialProject = typeof params.projet === "string" ? params.projet.slice(0, 40) : "";
   return (
     <HomeScreen
-      projects={projects.map((p) => ({ slug: p.s, name: p.n }))}
+      projects={projects.map((p) => ({ slug: p.s, name: p.n, prof: p.r === "prof" }))}
       initialProject={initialProject}
       year={new Date().getFullYear()}
     />

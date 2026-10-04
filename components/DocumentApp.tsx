@@ -7,6 +7,7 @@ import {
   useOthers,
   useRoom,
   useSelf,
+  useClient,
   useStatus,
   useSyncStatus,
   useUpdateMyPresence,
@@ -14,10 +15,27 @@ import {
 import { getYjsProviderForRoom } from "@liveblocks/yjs";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { Lock, WifiOff } from "lucide-react";
-import { saveIdentity, type Identity } from "@/lib/identity";
+import { PROF_COLOR, saveIdentity, type Identity } from "@/lib/identity";
 import { registerMember, removeMember, touchMember, useMembers } from "@/lib/members";
 import { describeTransaction, logActivity, purgeObsoleteActivity, useActivity } from "@/lib/activity";
 import { formatDueDate, setDueDate, useDueDate } from "@/lib/due-date";
+import { addTask, deleteTask, updateTask, useTasks } from "@/lib/tasks";
+import { TaskBoard, type TaskActions } from "./Tasks";
+import type * as Y from "yjs";
+import {
+  addReply,
+  addThread,
+  anchorSelection,
+  deleteThread,
+  notesRoomId,
+  resolveAnchor,
+  setResolved,
+  useThreads,
+  type Author,
+} from "@/lib/comments";
+import { commentsKey } from "@/lib/editor/comments";
+import { CommentComposer, ThreadDialog } from "./Comments";
+import { uploadImage } from "@/lib/images";
 import { isRemote } from "@/lib/editor/shared";
 import {
   AUTO_INTERVAL_MS,
@@ -43,7 +61,8 @@ type Props = {
   identity: Identity | null;
   identityRef: RefObject<Identity | null>;
   onIdentityChange: (identity: Identity) => void;
-  project: { slug: string; name: string };
+  /** role "prof" : lien professeur, lecture seule + commentaires. */
+  project: { slug: string; name: string; role?: "prof" };
 };
 
 type Connection = "ok" | "lost" | "failed";
@@ -51,6 +70,7 @@ type Connection = "ok" | "lost" | "failed";
 export function DocumentApp({ identity, identityRef, onIdentityChange, project }: Props) {
   const room = useRoom();
   const provider = useMemo(() => getYjsProviderForRoom(room), [room]);
+  const readOnly = project.role === "prof";
 
   // Une fois le document chargé, on garde l'éditeur affiché même en cas de coupure.
   const [loaded, setLoaded] = useState(() => provider.synced);
@@ -77,8 +97,8 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   // Présence : prénom et couleur visibles par les autres.
   const updateMyPresence = useUpdateMyPresence();
   useEffect(() => {
-    updateMyPresence({ name: identity?.name ?? "", color: identity?.color ?? "" });
-  }, [identity, updateMyPresence]);
+    updateMyPresence({ name: identity?.name ?? "", color: identity?.color ?? "", prof: readOnly });
+  }, [identity, readOnly, updateMyPresence]);
 
   const myId = useSelf((me) => me.id);
   const myConnection = useSelf((me) => me.connectionId);
@@ -91,6 +111,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
         name: o.presence.name,
         color: o.presence.color,
         typing: Boolean(o.presence.typing),
+        prof: Boolean(o.presence.prof),
       })),
     shallow,
   );
@@ -100,26 +121,27 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   const joined = useRef(false);
   // Prénom ou couleur modifiés en cours de route : mise à jour de la fiche membre.
   useEffect(() => {
-    if (joined.current && identity && myId) registerMember(provider.getYDoc(), myId, identity);
-  }, [identity, myId, provider]);
+    if (joined.current && identity && myId && !readOnly) registerMember(provider.getYDoc(), myId, identity);
+  }, [identity, myId, provider, readOnly]);
 
   const people = useMemo(() => {
     const byName = new Map<string, Person>();
-    const keyOf = (name: string, id: string) => (name ? name.toLowerCase() : `id:${id}`);
+    // Le professeur reste sur sa propre ligne, même avec le prénom d'un élève.
+    const keyOf = (name: string, id: string, prof = false) => (prof ? "prof:" : "") + (name ? name.toLowerCase() : `id:${id}`);
     const me: Person = {
       key: "me", memberIds: [myId], name: identity?.name ?? "", color: identity?.color ?? "",
-      me: true, online: true, typing, seen: Date.now(),
+      me: true, online: true, typing, seen: Date.now(), prof: readOnly,
     };
-    byName.set(keyOf(me.name, myId), me);
+    byName.set(keyOf(me.name, myId, readOnly), me);
     for (const o of others) {
-      const k = keyOf(o.name, o.id);
+      const k = keyOf(o.name, o.id, o.prof);
       const existing = byName.get(k);
       if (existing) {
         existing.online = true;
         existing.typing = existing.typing || o.typing;
         continue;
       }
-      byName.set(k, { key: o.key, memberIds: [o.id], name: o.name, color: o.color, me: false, online: true, typing: o.typing, seen: Date.now() });
+      byName.set(k, { key: o.key, memberIds: [o.id], name: o.name, color: o.color, me: false, online: true, typing: o.typing, seen: Date.now(), prof: o.prof });
     }
     for (const m of members) {
       const k = keyOf(m.name, m.id);
@@ -139,16 +161,17 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
         Number(b.online) - Number(a.online) ||
         a.name.localeCompare(b.name, "fr"),
     );
-  }, [others, myId, identity, members, typing]);
+  }, [others, myId, identity, members, typing, readOnly]);
 
   // Journal d'activité
   const activity = useActivity(provider.getYDoc());
   const log = useCallback(
     (type: Parameters<typeof logActivity>[3], detail?: string) => {
       const who = identityRef.current;
-      if (who && myId) logActivity(provider.getYDoc(), myId, who, type, detail);
+      // Le professeur ne peut pas écrire dans le document : rien dans l'activité.
+      if (who && myId && !readOnly) logActivity(provider.getYDoc(), myId, who, type, detail);
     },
-    [identityRef, myId, provider],
+    [identityRef, myId, provider, readOnly],
   );
 
   // Date de rendu, réglée par le groupe.
@@ -161,20 +184,44 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     [provider, log],
   );
 
+  // Tâches du groupe.
+  const tasks = useTasks(provider.getYDoc());
+  const [tasksOpen, setTasksOpen] = useState(false);
+  const taskPeople = useMemo(
+    () => people.filter((p) => p.name && !p.prof).map((p) => ({ name: p.name, color: p.color })),
+    [people],
+  );
+  const taskActions = useMemo<TaskActions>(
+    () => ({
+      editable: Boolean(identity) && !readOnly,
+      people: taskPeople,
+      onAdd: (text) => {
+        const task = addTask(provider.getYDoc(), text);
+        if (task) log("task-add", task.text.slice(0, 60));
+      },
+      onUpdate: (task, changes) => {
+        updateTask(provider.getYDoc(), task, changes);
+        if (changes.state === "done" && task.state !== "done") log("task-done", task.text.slice(0, 60));
+      },
+      onDelete: (task) => deleteTask(provider.getYDoc(), task.id),
+    }),
+    [identity, readOnly, taskPeople, provider, log],
+  );
+
   // Inscription dans la liste des membres à l'ouverture.
   useEffect(() => {
-    if (!loaded || !identity || !myId || joined.current) return;
+    if (!loaded || !identity || !myId || joined.current || readOnly) return;
     joined.current = true;
     registerMember(provider.getYDoc(), myId, identity);
     purgeObsoleteActivity(provider.getYDoc());
-  }, [loaded, identity, myId, provider]);
+  }, [loaded, identity, myId, provider, readOnly]);
 
   // Signe de vie toutes les minutes (pour afficher "vu à" dans la liste des membres).
   useEffect(() => {
-    if (!loaded || !identity || !myId) return;
+    if (!loaded || !identity || !myId || readOnly) return;
     const timer = setInterval(() => touchMember(provider.getYDoc(), myId, identity), 60_000);
     return () => clearInterval(timer);
-  }, [loaded, identity, myId, provider]);
+  }, [loaded, identity, myId, provider, readOnly]);
 
   // "écrit…" dans la liste des membres : visible par tous pendant la frappe, puis 3 s après.
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -210,7 +257,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   const [editing, setEditing] = useState(false);
   const saveChoice = useCallback(
     (next: Identity) => {
-      saveIdentity(next);
+      saveIdentity(next, readOnly);
       onIdentityChange(next);
       setEditing(false);
     },
@@ -227,13 +274,37 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   }, []);
 
   const [editor, setEditor] = useState<TiptapEditor | null>(null);
+
+  // Petit message en bas de l'écran (envoi d'image, erreur…).
+  const [notice, setNotice] = useState("");
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showNotice = useCallback((text: string, ms = 0) => {
+    setNotice(text);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    if (ms) noticeTimer.current = setTimeout(() => setNotice(""), ms);
+  }, []);
+
+  const onUploadImage = useCallback(
+    async (file: File) => {
+      showNotice("Envoi de l'image…");
+      const result = await uploadImage(project.slug, file);
+      if ("error" in result) {
+        showNotice(result.error, 5000);
+        return null;
+      }
+      showNotice("");
+      log("image");
+      return result.src;
+    },
+    [project.slug, showNotice, log],
+  );
   const lastEmergencySave = useRef(0);
 
   // Modifications faites dans l'éditeur par la personne courante.
   useEffect(() => {
     if (!editor) return;
     const onTransaction = ({ transaction }: { transaction: Parameters<typeof describeTransaction>[0] }) => {
-      if (isRemote(transaction) || !transaction.steps.length || transaction.getMeta(RESTORE_META)) return;
+      if (readOnly || isRemote(transaction) || !transaction.steps.length || transaction.getMeta(RESTORE_META)) return;
       // Grosse suppression : on garde une copie de l'état d'avant (au plus une par minute).
       const who = identityRef.current;
       if (who && transaction.docChanged && isBigDeletion(transaction.before, transaction.doc)) {
@@ -251,7 +322,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     return () => {
       editor.off("transaction", onTransaction);
     };
-  }, [editor, log, markTyping, identityRef, provider]);
+  }, [editor, log, markTyping, identityRef, provider, readOnly]);
 
   // Versions : copie automatique toutes les 10 minutes si le document a changé.
   // Une seule personne s'en charge : celle qui a le plus petit numéro de connexion.
@@ -262,7 +333,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     othersRef.current = others;
   }, [others]);
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || readOnly) return;
     const tick = () => {
       const who = identityRef.current;
       if (!who) return;
@@ -275,25 +346,82 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     };
     const timer = setInterval(tick, 60_000);
     return () => clearInterval(timer);
-  }, [editor, identityRef, myConnection, provider]);
+  }, [editor, identityRef, myConnection, provider, readOnly]);
 
   const saveVersionNow = useCallback(() => {
     const who = identityRef.current;
-    if (!editor || !who) return false;
+    if (!editor || !who || readOnly) return false;
     const saved = saveVersion(provider.getYDoc(), editor.state.doc, who, "manual");
     if (saved) log("version-save");
     return saved;
-  }, [editor, identityRef, provider, log]);
+  }, [editor, identityRef, provider, log, readOnly]);
 
   const restore = useCallback(
     (version: Version) => {
       const who = identityRef.current;
-      if (!editor || !who) return;
+      if (!editor || !who || readOnly) return;
       restoreVersion(provider.getYDoc(), editor, version, who);
       log("version-restore", new Date(version.t).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }));
     },
-    [editor, identityRef, provider, log],
+    [editor, identityRef, provider, log, readOnly],
   );
+
+  // Commentaires : salon à part, où le professeur a le droit d'écrire.
+  const client = useClient();
+  const [notes, setNotes] = useState<{ doc: Y.Doc; disconnect: () => void; connect: () => void } | null>(null);
+  useEffect(() => {
+    const { room: notesRoom, leave } = client.enterRoom(notesRoomId(project.slug), {
+      initialPresence: { name: "", color: "" },
+    });
+    const notesProvider = getYjsProviderForRoom(notesRoom);
+    let alive = true;
+    const onSync = (synced: boolean) => {
+      if (synced && alive) {
+        setNotes({ doc: notesProvider.getYDoc(), disconnect: () => notesRoom.disconnect(), connect: () => notesRoom.connect() });
+      }
+    };
+    notesProvider.on("sync", onSync);
+    if (notesProvider.synced) onSync(true);
+    return () => {
+      alive = false;
+      notesProvider.off("sync", onSync);
+      leave();
+    };
+  }, [client, project.slug]);
+  const threads = useThreads(notes?.doc ?? null);
+  const [composer, setComposer] = useState<{ from: unknown; to: unknown; quote: string } | null>(null);
+  const [openThread, setOpenThread] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+  const me = useMemo<Author | null>(
+    () => (identity && myId ? { uid: myId, name: identity.name, color: identity.color, prof: readOnly } : null),
+    [identity, myId, readOnly],
+  );
+  // Les commentaires (et celui qui est ouvert) sont transmis à l'éditeur pour le surlignage.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dispatch(editor.state.tr.setMeta(commentsKey, { threads, active: openThread ?? flash }));
+  }, [editor, threads, openThread, flash]);
+  const onComment = useMemo(() => {
+    if (!notes || !editor) return undefined;
+    return () => {
+      const anchor = anchorSelection(editor.state);
+      if (anchor) setComposer(anchor);
+    };
+  }, [notes, editor]);
+  const thread = openThread ? (threads.find((t) => t.id === openThread) ?? null) : null;
+
+  function goToThread(id: string) {
+    const t = threads.find((x) => x.id === id);
+    const range = editor && t ? resolveAnchor(editor.state, t) : null;
+    if (!editor || !range) return;
+    const { node } = editor.view.domAtPos(range.from);
+    const el = node instanceof HTMLElement ? node : node.parentElement;
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    setOpenThread(null);
+    setFlash(id);
+    setTimeout(() => setFlash((f) => (f === id ? null : f)), 2500);
+  }
+
   const [exporting, setExporting] = useState(false);
   // Panneau de droite replié ou non (choix retenu dans ce navigateur).
   const [panelCollapsed, setPanelCollapsed] = useState(false);
@@ -396,6 +524,10 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
                 markTyping();
                 log(field);
               }}
+              readOnly={readOnly}
+              onOpenThread={setOpenThread}
+              onComment={onComment}
+              onUploadImage={readOnly ? undefined : onUploadImage}
             />
           ) : (
             <Loading text="Chargement du document…" />
@@ -421,6 +553,8 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
                 onPrint={() => setExportChoice("print")}
                 onOpenVersions={() => setVersionsOpen(true)}
                 dueDate={dueDate}
+                onOpenTasks={() => setTasksOpen(true)}
+                readOnly={readOnly}
               />
             </div>
           )}
@@ -445,12 +579,71 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
             editor={editor}
             dueDate={dueDate}
             onDueDateChange={onDueDateChange}
+            tasks={tasks}
+            taskActions={taskActions}
+            onOpenTasks={() => setTasksOpen(true)}
+            threads={threads}
+            onOpenThread={setOpenThread}
+            readOnly={readOnly}
           />
           </div>
         </aside>
       </div>
 
-      <IdleGuard onIdle={() => room.disconnect()} onResume={() => room.connect()} />
+      <IdleGuard
+        onIdle={() => {
+          room.disconnect();
+          notes?.disconnect();
+        }}
+        onResume={() => {
+          room.connect();
+          notes?.connect();
+        }}
+      />
+
+      {composer && me && notes && (
+        <CommentComposer
+          quote={composer.quote}
+          prof={readOnly}
+          onClose={() => setComposer(null)}
+          onSubmit={(text) => {
+            const id = addThread(notes.doc, me, composer, text);
+            if (id) log("comment");
+          }}
+        />
+      )}
+
+      {thread && notes && me && (
+        <ThreadDialog
+          thread={thread}
+          me={me}
+          missing={!editor || !resolveAnchor(editor.state, thread)}
+          onClose={() => setOpenThread(null)}
+          onReply={(text) => addReply(notes.doc, me, thread.id, text)}
+          onResolve={(resolved) => setResolved(notes.doc, thread, resolved ? me.name : null)}
+          onGoTo={() => goToThread(thread.id)}
+          onDelete={async () => {
+            const ok = await confirm({
+              title: "Supprimer ce commentaire ?",
+              message: "Le commentaire et ses réponses seront supprimés pour tout le monde.",
+              confirmLabel: "Supprimer",
+              danger: true,
+            });
+            if (!ok) return;
+            deleteThread(notes.doc, thread.id);
+            setOpenThread(null);
+          }}
+        />
+      )}
+
+      {notice && (
+        <div
+          role="status"
+          className="no-print fixed bottom-4 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded-lg bg-neutral-900 px-3 py-2 text-sm text-white shadow-lg"
+        >
+          {notice}
+        </div>
+      )}
 
       {blockedVisible && (
         <div
@@ -470,12 +663,15 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
         />
       )}
 
+      {tasksOpen && <TaskBoard tasks={tasks} actions={taskActions} onClose={() => setTasksOpen(false)} />}
+
       {versionsOpen && (
         <VersionsDialog
           versions={versions}
           onClose={() => setVersionsOpen(false)}
           onSaveNow={saveVersionNow}
           onRestore={restore}
+          readOnly={readOnly}
         />
       )}
 
@@ -485,6 +681,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
           takenColors={takenColors}
           onSave={saveChoice}
           onCancel={identity ? () => setEditing(false) : undefined}
+          fixedColor={readOnly ? PROF_COLOR : undefined}
         />
       )}
     </div>

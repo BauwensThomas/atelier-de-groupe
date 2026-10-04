@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, readSession } from "@/lib/session";
-import { cleanName, isPaletteColor } from "@/lib/identity";
-import { getLiveblocks, getProject } from "@/lib/projects";
+import { PROF_COLOR, cleanName, isPaletteColor } from "@/lib/identity";
+import { getLiveblocks, getProject, teacherKeyTag } from "@/lib/projects";
 import { readJson } from "@/lib/request";
 
 // Donne accès à un salon seulement s'il fait partie des projets de la session.
@@ -16,14 +16,23 @@ export async function POST(request: NextRequest) {
 
   const body = await readJson(request);
   const room = typeof body.room === "string" ? body.room : "";
-  if (!projects.some((p) => p.s === room)) {
+  // Salon des commentaires d'un projet : "<projet>--notes" (un nom de projet ne contient jamais "--").
+  const isNotes = room.endsWith("--notes");
+  const slug = isNotes ? room.slice(0, -"--notes".length) : room;
+  const entry = projects.find((p) => p.s === slug);
+  if (!entry) {
     return NextResponse.json({ error: "Accès refusé à ce projet." }, { status: 403 });
   }
 
   // Ne jamais ouvrir (ni recréer) le salon d'un projet supprimé ou en attente.
-  const project = await getProject(room).catch(() => null);
+  const project = await getProject(slug).catch(() => null);
   if (!project || project.status !== "active") {
     return NextResponse.json({ error: "Ce projet n'existe plus." }, { status: 404 });
+  }
+  // Professeur : le lien doit toujours être le bon (un "nouveau lien" coupe l'accès de l'ancien).
+  const prof = entry.r === "prof";
+  if (prof && (!project.teacherKey || teacherKeyTag(project.teacherKey) !== entry.k)) {
+    return NextResponse.json({ error: "Ce lien professeur n'est plus valable." }, { status: 403 });
   }
 
   const userId =
@@ -31,10 +40,12 @@ export async function POST(request: NextRequest) {
       ? body.userId
       : crypto.randomUUID();
   const name = cleanName(body.name) || "Invité";
-  const color = isPaletteColor(body.color) ? body.color : "#6b7280";
+  // Couleur du professeur imposée par le serveur ; un élève ne peut pas la prendre.
+  const color = prof ? PROF_COLOR : isPaletteColor(body.color) ? body.color : "#6b7280";
 
   const session = getLiveblocks().prepareSession(userId, { userInfo: { name, color } });
-  session.allow(room, session.FULL_ACCESS);
+  // Le professeur lit le document sans pouvoir le modifier ; il écrit seulement dans les commentaires.
+  session.allow(room, prof && !isNotes ? session.READ_ACCESS : session.FULL_ACCESS);
   const { status, body: responseBody } = await session.authorize();
   return new NextResponse(responseBody, {
     status,

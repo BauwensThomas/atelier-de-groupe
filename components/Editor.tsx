@@ -15,6 +15,9 @@ import { SafeDelete } from "@/lib/editor/safe-delete";
 import { DeletedMark } from "@/lib/editor/track-deletions";
 import { Pagination } from "@/lib/editor/pagination";
 import { Search } from "@/lib/editor/search";
+import { Comments } from "@/lib/editor/comments";
+import { ReadOnlyGuard } from "@/lib/editor/read-only";
+import { DocImage } from "@/lib/editor/image";
 import { DocHeader } from "./DocHeader";
 import { Toolbar } from "./Toolbar";
 
@@ -25,23 +28,34 @@ type Props = {
   onBlocked: () => void;
   onReady: (editor: TiptapEditor | null) => void;
   onHeaderEdited: (field: "title" | "authors") => void;
+  /** Professeur : lecture seule (il peut seulement commenter). */
+  readOnly: boolean;
+  onOpenThread: (id: string) => void;
+  /** Absent tant que les commentaires ne sont pas chargés. */
+  onComment?: () => void;
+  /** Envoi d'une image ; absent si les images ne sont pas possibles (professeur). */
+  onUploadImage?: (file: File) => Promise<string | null>;
 };
 
 type Tip = { name: string; x: number; y: number } | null;
 
 const GUEST = { name: "Invité", color: "#6b7280" };
 
-export function Editor({ provider, identity, identityRef, onBlocked, onReady, onHeaderEdited }: Props) {
+export function Editor({ provider, identity, identityRef, onBlocked, onReady, onHeaderEdited, readOnly, onOpenThread, onComment, onUploadImage }: Props) {
   const onBlockedRef = useRef(onBlocked);
+  const onOpenThreadRef = useRef(onOpenThread);
+  const uploadRef = useRef(onUploadImage);
   const [tip, setTip] = useState<Tip>(null);
 
   useEffect(() => {
     onBlockedRef.current = onBlocked;
-  }, [onBlocked]);
+    onOpenThreadRef.current = onOpenThread;
+    uploadRef.current = onUploadImage;
+  }, [onBlocked, onOpenThread, onUploadImage]);
 
   const editor = useEditor({
     immediatelyRender: false,
-    editable: Boolean(identityRef.current),
+    editable: Boolean(identityRef.current) && !readOnly,
     extensions: [
       StarterKit.configure({
         undoRedo: false,
@@ -67,6 +81,9 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
       SafeDelete,
       Pagination,
       Search,
+      ReadOnlyGuard,
+      DocImage.configure({ upload: (file) => uploadRef.current?.(file) ?? Promise.resolve(null) }),
+      Comments.configure({ onOpen: (id) => onOpenThreadRef.current(id) }),
     ],
     editorProps: {
       attributes: { spellcheck: "true", "aria-label": "Document du groupe" },
@@ -81,9 +98,9 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
   // Nouveau prénom ou nouvelle couleur : on met à jour le curseur et l'édition.
   useEffect(() => {
     if (!editor) return;
-    editor.setEditable(Boolean(identity));
+    editor.setEditable(Boolean(identity) && !readOnly);
     editor.commands.updateUser(identity ?? GUEST);
-  }, [editor, identity]);
+  }, [editor, identity, readOnly]);
 
   function onMouseOver(event: MouseEvent) {
     const el = event.target as HTMLElement;
@@ -101,10 +118,10 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
 
   return (
     <div className="flex flex-col">
-      {editor && <Toolbar editor={editor} />}
+      {editor && <Toolbar editor={editor} readOnly={readOnly} onComment={identity ? onComment : undefined} onUploadImage={readOnly ? undefined : onUploadImage} />}
       <div className="print-reset flex justify-center px-2 py-4 sm:px-6 sm:py-8">
         <div className="page" onMouseOver={onMouseOver} onMouseLeave={() => setTip(null)}>
-          <DocHeader doc={provider.getYDoc()} editable={Boolean(identity)} onEdited={onHeaderEdited} />
+          <DocHeader doc={provider.getYDoc()} editable={Boolean(identity) && !readOnly} onEdited={onHeaderEdited} />
           <EditorContent editor={editor} />
         </div>
       </div>

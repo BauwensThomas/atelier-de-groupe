@@ -10,6 +10,9 @@ export const PALETTE = [
   { value: "#a16207", label: "Moutarde" },
 ] as const;
 
+/** Couleur réservée au professeur : absente de la palette, refusée par le serveur pour un élève. */
+export const PROF_COLOR = "#c026d3";
+
 export const NAME_MAX = 24;
 
 export type Identity = { name: string; color: string };
@@ -26,39 +29,47 @@ export function cleanName(name: unknown): string {
 const IDENTITY_KEY = "gp.identity";
 const USER_ID_KEY = "gp.userId";
 
-export function loadIdentity(): Identity | null {
+// Le professeur a sa propre identité (prénom, couleur, identifiant) : pas de mélange avec un compte élève
+// ouvert dans le même navigateur.
+const suffix = (prof: boolean) => (prof ? ".prof" : "");
+
+export function loadIdentity(prof = false): Identity | null {
   try {
-    const raw = window.localStorage.getItem(IDENTITY_KEY);
+    const raw = window.localStorage.getItem(IDENTITY_KEY + suffix(prof));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const name = cleanName(parsed?.name);
-    if (!name || !isPaletteColor(parsed?.color)) return null;
+    if (!name) return null;
+    // Professeur : toujours sa couleur réservée. Élève : une couleur de la palette.
+    if (prof) return { name, color: PROF_COLOR };
+    if (!isPaletteColor(parsed?.color)) return null;
     return { name, color: parsed.color };
   } catch {
     return null;
   }
 }
 
-export function saveIdentity(identity: Identity): void {
+export function saveIdentity(identity: Identity, prof = false): void {
   try {
-    window.localStorage.setItem(IDENTITY_KEY, JSON.stringify(identity));
+    window.localStorage.setItem(IDENTITY_KEY + suffix(prof), JSON.stringify(identity));
   } catch {
     // stockage indisponible (navigation privée par exemple) : le choix vaut pour la session
   }
 }
 
-let memoryUserId: string | null = null;
+const memoryUserId: Record<string, string> = {};
 
 // Identifiant anonyme et stable par navigateur, utilisé par Liveblocks.
-export function getUserId(): string {
+export function getUserId(prof = false): string {
+  const key = USER_ID_KEY + suffix(prof);
   try {
-    const existing = window.localStorage.getItem(USER_ID_KEY);
+    const existing = window.localStorage.getItem(key);
     if (existing) return existing;
     const id = crypto.randomUUID();
-    window.localStorage.setItem(USER_ID_KEY, id);
+    window.localStorage.setItem(key, id);
     return id;
   } catch {
-    if (!memoryUserId) memoryUserId = crypto.randomUUID();
-    return memoryUserId;
+    memoryUserId[key] ??= crypto.randomUUID();
+    return memoryUserId[key];
   }
 }

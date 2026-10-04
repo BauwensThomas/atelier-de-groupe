@@ -9,13 +9,15 @@ type Props = {
   takenColors: Set<string>;
   onSave: (identity: Identity) => void;
   onCancel?: () => void;
+  /** Professeur : couleur imposée (réservée), pas de choix. */
+  fixedColor?: string;
 };
 
-export function IdentityDialog({ initial, takenColors, onSave, onCancel }: Props) {
+export function IdentityDialog({ initial, takenColors, onSave, onCancel, fixedColor }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [color, setColor] = useState(initial?.color ?? "");
+  const [color, setColor] = useState(fixedColor ?? initial?.color ?? "");
 
-  const colorTaken = color !== "" && takenColors.has(color) && color !== initial?.color;
+  const colorTaken = !fixedColor && color !== "" && takenColors.has(color) && color !== initial?.color;
   const canSave = cleanName(name) !== "" && color !== "" && !colorTaken;
 
   function onSubmit(event: FormEvent) {
@@ -36,7 +38,9 @@ export function IdentityDialog({ initial, takenColors, onSave, onCancel }: Props
         <h2 id="identity-title" className="text-lg font-semibold">
           Qui es-tu ?
         </h2>
-        <p className="mb-4 text-sm text-neutral-500">Ton texte sera écrit dans ta couleur.</p>
+        <p className="mb-4 text-sm text-neutral-500">
+          {fixedColor ? "Ton prénom apparaît sur tes notes." : "Ton texte sera écrit dans ta couleur."}
+        </p>
 
         <label htmlFor="identity-name" className="mb-1 block text-sm font-medium">
           Prénom
@@ -50,6 +54,12 @@ export function IdentityDialog({ initial, takenColors, onSave, onCancel }: Props
           className="w-full rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/10"
         />
 
+        {fixedColor ? (
+          <p className="mt-4 flex items-center gap-2 text-sm text-neutral-700">
+            <span className="h-5 w-5 shrink-0 rounded-full" style={{ backgroundColor: fixedColor }} aria-hidden />
+            Ta couleur est réservée au professeur : les élèves ne peuvent pas la prendre.
+          </p>
+        ) : (
         <fieldset className="mt-4">
           <legend className="mb-2 text-sm font-medium">Couleur</legend>
           <div className="grid grid-cols-4 gap-2">
@@ -77,6 +87,7 @@ export function IdentityDialog({ initial, takenColors, onSave, onCancel }: Props
           </div>
           <p className="mt-2 text-xs text-neutral-500">Les couleurs grisées sont prises par une personne connectée.</p>
         </fieldset>
+        )}
 
         <div className="mt-5 flex justify-end gap-2">
           {onCancel && (

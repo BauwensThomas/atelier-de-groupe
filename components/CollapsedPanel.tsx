@@ -1,6 +1,6 @@
 "use client";
 
-import { FileDown, History, PanelRightOpen, Printer } from "lucide-react";
+import { FileDown, History, ListTodo, PanelRightOpen, Printer } from "lucide-react";
 import type { ReactNode } from "react";
 import { ShareButton } from "./ShareButton";
 import type { Person, SyncState } from "./SidePanel";
@@ -18,6 +18,8 @@ type Props = {
   onPrint: () => void;
   onOpenVersions: () => void;
   dueDate: string | null;
+  onOpenTasks: () => void;
+  readOnly: boolean;
 };
 
 const SYNC: Record<SyncState, { text: string; dot: string }> = {
@@ -43,7 +45,8 @@ function IconButton({ label, onClick, disabled, children }: { label: string; onC
 }
 
 export function CollapsedPanel(props: Props) {
-  const online = props.people.filter((p) => p.online);
+  const online = props.people.filter((p) => p.online && !p.prof);
+  const profOnline = props.people.some((p) => p.online && p.prof && !p.me);
   const status = SYNC[props.sync];
   useMinuteTick();
   const left = props.dueDate ? countdown(props.dueDate) : null;
@@ -68,13 +71,26 @@ export function CollapsedPanel(props: Props) {
       <span className="h-px w-6 bg-neutral-200" aria-hidden />
 
       {/* Personnes connectées : initiale dans la couleur de chacun, le rond pulse pendant la frappe */}
+      {profOnline && !props.readOnly && (
+        <span
+          title="Professeur connecté"
+          aria-label="Professeur connecté"
+          role="status"
+          className="flex h-7 w-7 animate-pulse items-center justify-center rounded-full bg-fuchsia-600 text-[10px] font-bold text-white"
+        >
+          Prof
+        </span>
+      )}
+
+      {/* Le professeur ne voit pas qui est en ligne. */}
+      {!props.readOnly && (
       <ul className="flex flex-col items-center gap-1.5" aria-label="Personnes en ligne">
         {online.map((p) => (
           <li key={p.key}>
             <span
-              title={`${p.name || "Sans prénom"}${p.me ? " (moi)" : ""}${p.typing ? " : écrit…" : " : en ligne"}`}
+              title={`${p.name || "Sans prénom"}${p.me ? " (moi)" : ""}${p.prof ? " (professeur)" : ""}${p.typing ? " : écrit…" : " : en ligne"}`}
               className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold text-white ${
-                p.typing ? "animate-pulse ring-2 ring-green-500 ring-offset-1" : ""
+                p.typing ? "animate-pulse ring-2 ring-green-500 ring-offset-1" : p.prof ? "ring-2 ring-fuchsia-500 ring-offset-1" : ""
               }`}
               style={{ backgroundColor: p.color || "#9ca3af" }}
             >
@@ -83,19 +99,27 @@ export function CollapsedPanel(props: Props) {
           </li>
         ))}
       </ul>
+      )}
 
       <span className="h-px w-6 bg-neutral-200" aria-hidden />
 
-      <ShareButton slug={props.project.slug} name={props.project.name} compact />
+      {!props.readOnly && <ShareButton slug={props.project.slug} name={props.project.name} compact />}
+      {!props.readOnly && (
+      <>
       <IconButton label="Exporter en Word" onClick={props.onExport} disabled={!props.canExport}>
         <FileDown size={16} aria-hidden />
       </IconButton>
       <IconButton label="Imprimer / PDF" onClick={props.onPrint} disabled={!props.canExport}>
         <Printer size={16} aria-hidden />
       </IconButton>
+      <IconButton label="Tâches" onClick={props.onOpenTasks}>
+        <ListTodo size={16} aria-hidden />
+      </IconButton>
       <IconButton label="Versions" onClick={props.onOpenVersions}>
         <History size={16} aria-hidden />
       </IconButton>
+      </>
+      )}
     </div>
   );
 }
