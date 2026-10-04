@@ -1,15 +1,22 @@
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
+import type { Node as PMNode } from "@tiptap/pm/model";
 
 // Pagination visuelle façon Word : sauts de page dessinés entre les blocs, numéro en bas de chaque page.
 // Un bloc (paragraphe, question, tableau) n'est jamais coupé : s'il ne tient plus, il passe à la page suivante.
 
-const key = new PluginKey<DecorationSet>("pagination");
+const key = new PluginKey<PaginationState>("pagination");
 const GAP = 24; // espace gris entre deux pages, en pixels
 const MIN_WIDTH = 500; // en dessous (téléphone), pas de pagination
 
 type Layout = { padTop: number; padBottom: number; padLeft: number; padRight: number };
+
+// Résultat du calcul : sauts de page placés avant le n-ième bloc du document (et non à une position dans le texte).
+// Quand le document est remplacé d'un coup (modification venue d'un autre écran), les sauts restent ainsi en place
+// jusqu'au calcul suivant : la page ne "saute" plus (avant, ils disparaissaient un instant et l'écran bougeait).
+type Pages = { breaks: Array<{ index: number; n: number; filler: number }>; last: number; endFiller: number; layout: Layout } | null;
+type PaginationState = { pages: Pages; set: DecorationSet };
 
 function pageNumber(n: number): HTMLElement {
   const el = document.createElement("div");
@@ -65,11 +72,11 @@ function endWidget(n: number, filler: number, layout: Layout): HTMLElement {
   return el;
 }
 
-function measure(view: EditorView): DecorationSet {
+function measure(view: EditorView): Pages {
   const pageEl = view.dom.closest<HTMLElement>(".page");
   if (!pageEl || pageEl.clientWidth < MIN_WIDTH) {
     pageEl?.classList.remove("paginated");
-    return DecorationSet.empty;
+    return null;
   }
   pageEl.classList.add("paginated");
 
@@ -94,43 +101,58 @@ function measure(view: EditorView): DecorationSet {
   });
   const flow = (y: number) => y - origin - widgets.filter((w) => w.top < y).reduce((s, w) => s + w.height, 0);
 
-  const decorations: Decoration[] = [];
+  const breaks: Array<{ index: number; n: number; filler: number }> = [];
   let pageTop = 0;
   let previousBottom = 0;
   let page = 1;
 
-  view.state.doc.forEach((node, offset) => {
+  view.state.doc.forEach((node, offset, index) => {
     const dom = view.nodeDOM(offset);
     if (!(dom instanceof HTMLElement)) return;
     const rect = dom.getBoundingClientRect();
     const top = flow(rect.top / scale);
     const bottom = top + rect.height / scale;
     if (bottom - pageTop > contentHeight && top > pageTop + 1) {
-      const filler = pageTop + contentHeight - previousBottom;
-      const n = page;
-      decorations.push(
-        Decoration.widget(offset, () => breakWidget(n, filler, layout), {
-          side: -1,
-          ignoreSelection: true,
-          key: `pb-${n}-${Math.round(filler)}-${Math.round(layout.padTop)}`,
-        }),
-      );
+      breaks.push({ index, n: page, filler: pageTop + contentHeight - previousBottom });
       page += 1;
       pageTop = top;
     }
     previousBottom = bottom;
   });
 
-  const filler = pageTop + contentHeight - previousBottom;
-  const last = page;
+  return { breaks, last: page, endFiller: pageTop + contentHeight - previousBottom, layout };
+}
+
+/** Décorations des pages pour ce document : chaque saut avant son n-ième bloc, la fin de page tout en bas. */
+function build(doc: PMNode, pages: Pages): DecorationSet {
+  if (!pages) return DecorationSet.empty;
+  const { layout } = pages;
+  const offsets: number[] = [];
+  doc.forEach((_node, offset) => offsets.push(offset));
+  const decorations: Decoration[] = [];
+  for (const b of pages.breaks) {
+    if (b.index >= offsets.length) break;
+    decorations.push(
+      Decoration.widget(offsets[b.index], () => breakWidget(b.n, b.filler, layout), {
+        side: -1,
+        ignoreSelection: true,
+        key: `pb-${b.n}-${Math.round(b.filler)}-${Math.round(layout.padTop)}`,
+      }),
+    );
+  }
   decorations.push(
-    Decoration.widget(view.state.doc.content.size, () => endWidget(last, filler, layout), {
+    Decoration.widget(doc.content.size, () => endWidget(pages.last, pages.endFiller, layout), {
       side: 1,
       ignoreSelection: true,
-      key: `pe-${last}-${Math.round(filler)}-${Math.round(layout.padBottom)}`,
+      key: `pe-${pages.last}-${Math.round(pages.endFiller)}-${Math.round(layout.padBottom)}`,
     }),
   );
-  return DecorationSet.create(view.state.doc, decorations);
+  return DecorationSet.create(doc, decorations);
+}
+
+/** Numéros des blocs qui commencent une nouvelle page à l'écran (pour l'export Word). */
+export function pageBreakIndices(state: EditorState): number[] {
+  return key.getState(state)?.pages?.breaks.map((b) => b.index) ?? [];
 }
 
 export const Pagination = Extension.create({
@@ -138,25 +160,28 @@ export const Pagination = Extension.create({
 
   addProseMirrorPlugins() {
     return [
-      new Plugin<DecorationSet>({
+      new Plugin<PaginationState>({
         key,
         state: {
-          init: () => DecorationSet.empty,
-          apply(tr, set) {
-            const next = tr.getMeta(key) as DecorationSet | undefined;
-            return next ?? set.map(tr.mapping, tr.doc);
+          init: () => ({ pages: null, set: DecorationSet.empty }),
+          apply(tr, prev) {
+            const measured = tr.getMeta(key) as { pages: Pages } | undefined;
+            if (measured) return { pages: measured.pages, set: build(tr.doc, measured.pages) };
+            // Texte modifié : mêmes sauts, replacés avant les mêmes blocs (le calcul exact suit juste après).
+            if (tr.docChanged) return { pages: prev.pages, set: build(tr.doc, prev.pages) };
+            return prev;
           },
         },
         props: {
-          decorations: (state) => key.getState(state),
+          decorations: (state) => key.getState(state)?.set,
         },
         view(view) {
           let timer: ReturnType<typeof setTimeout> | undefined;
           let frame = 0;
           const run = () => {
             if (view.isDestroyed) return;
-            const set = measure(view);
-            view.dispatch(view.state.tr.setMeta(key, set).setMeta("addToHistory", false));
+            const pages = measure(view);
+            view.dispatch(view.state.tr.setMeta(key, { pages }).setMeta("addToHistory", false));
           };
           const schedule = () => {
             clearTimeout(timer);

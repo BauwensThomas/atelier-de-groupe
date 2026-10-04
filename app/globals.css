@@ -268,9 +268,11 @@ body {
 
 /* Impression / PDF : page seule, tout en noir */
 @media print {
+  /* Mêmes marges que la page à l'écran (25 mm en haut et en bas, 20 mm sur les côtés) :
+     mêmes lignes et mêmes pages dans le PDF qu'à l'écran. */
   @page {
     size: A4;
-    margin: 18mm;
+    margin: 25mm 20mm;
 
     @bottom-center {
       content: counter(page);
@@ -279,9 +281,22 @@ body {
     }
   }
 
-  .page-break,
+  /* Chaque saut de page de l'écran devient un vrai saut de page (sans son espace gris ni son numéro). */
+  .tiptap > .page-break {
+    display: block !important;
+    height: 0 !important;
+    margin: 0 !important;
+    break-before: page;
+  }
+
+  .tiptap > .page-break > *,
   .page-end {
     display: none !important;
+  }
+
+  /* Comme à l'écran, un bloc n'est jamais coupé entre deux pages. */
+  .tiptap > * {
+    break-inside: avoid;
   }
 
   /* Badge Liveblocks : élément d'interface, pas de place dans le document imprimé */

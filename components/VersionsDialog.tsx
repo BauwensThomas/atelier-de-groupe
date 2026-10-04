@@ -10,6 +10,8 @@ import { AuthorMark } from "@/lib/editor/author-mark";
 import { DeletedMark } from "@/lib/editor/track-deletions";
 import { Question } from "@/lib/editor/question";
 import { DocImage } from "@/lib/editor/image";
+import { Pagination } from "@/lib/editor/pagination";
+import { ZoomBox } from "./ZoomBox";
 import { describeReason, groupVersions, versionSheet, type Version } from "@/lib/versions";
 import { MAIN_SHEET, type Sheet } from "@/lib/sheets";
 import { useConfirm } from "./ConfirmDialog";
@@ -48,10 +50,12 @@ function Preview({ version }: { version: Version }) {
       DeletedMark,
       Question,
       DocImage,
+      // Même découpe en pages que le document.
+      Pagination,
     ],
   });
   return (
-    <div className="page pointer-events-none mx-auto min-h-0! select-none">
+    <div className="page pointer-events-none select-none">
       {(version.title || version.authors) && (
         <header className="mb-6 border-b border-neutral-200 pb-4 text-center">
           {version.title && <p className="text-2xl font-bold">{version.title}</p>}
@@ -233,7 +237,12 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore, readOn
                   )}
                 </div>
                 <div className="flex-1 overflow-y-auto bg-neutral-100 p-3 sm:p-6">
-                  <Preview key={shown.id} version={shown} />
+                  {/* Page A4, réduite si la place manque, comme dans le document. */}
+                  <div className="flex justify-center">
+                    <ZoomBox zoom={1}>
+                      <Preview key={shown.id} version={shown} />
+                    </ZoomBox>
+                  </div>
                 </div>
               </div>
             )}

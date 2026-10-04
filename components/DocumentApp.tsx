@@ -37,6 +37,7 @@ import {
   type Author,
 } from "@/lib/comments";
 import { commentsKey } from "@/lib/editor/comments";
+import { pageBreakIndices } from "@/lib/editor/pagination";
 import { CommentComposer, ThreadDialog } from "./Comments";
 import { uploadImage } from "@/lib/images";
 import { MAIN_SHEET, addSheet, deleteSheet, renameSheet, sheetField, useSheets, type Sheet } from "@/lib/sheets";
@@ -740,6 +741,7 @@ Il sera supprimé pour tout le groupe.`,
           authors: doc.getText("authors").toString().trim(),
         },
         mode,
+        pageBreakIndices(editor.state),
       );
     } catch {
       await confirm({ title: "Export impossible", message: "L'export a échoué. Réessaie.", confirmLabel: "OK", cancelLabel: null });

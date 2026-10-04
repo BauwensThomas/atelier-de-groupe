@@ -20,6 +20,13 @@ import {
 } from "docx";
 
 const BLACK = "000000";
+// Mêmes réglages qu'à l'écran (globals.css) : texte 11,5 pt, interligne 1,6, 0,6 em entre les blocs,
+// titres 1,8 / 1,4 / 1,15 em, marges de 25 mm en haut et en bas et 20 mm sur les côtés.
+const FONT = "Arial"; // proche d'Inter (police de l'écran) et présente sur tous les ordinateurs
+const TEXT_SIZE = 23; // en demi-points
+const LINE = 384; // interligne 1,6 (240 = simple)
+const SPACE_AFTER = 138; // 0,6 em en vingtièmes de point
+const MM = 56.7; // vingtièmes de point par millimètre
 
 /** "2026-09-30" devient "30 septembre 2026". */
 function formatDate(iso: unknown): string {
@@ -99,7 +106,7 @@ function blockStyle(kind: "question" | "sujet"): Partial<IParagraphOptions> {
 }
 
 function paragraphOptions(ctx: Context, listItemFirst: boolean): Partial<IParagraphOptions> {
-  const options: Partial<IParagraphOptions> = { spacing: { after: 120 } };
+  const options: Partial<IParagraphOptions> = { spacing: { after: SPACE_AFTER } };
   if (ctx.listLevel >= 0 && listItemFirst) {
     if (ctx.ordered) {
       Object.assign(options, {
@@ -115,6 +122,15 @@ function paragraphOptions(ctx: Context, listItemFirst: boolean): Partial<IParagr
   return options;
 }
 
+// Sauts de page de l'écran : le premier paragraphe d'un bloc qui commence une page à l'écran commence aussi
+// une page dans Word ("saut de page avant").
+let pendingBreak = false;
+function para(options: IParagraphOptions): Paragraph {
+  const paragraph = new Paragraph(pendingBreak ? { ...options, pageBreakBefore: true } : options);
+  pendingBreak = false;
+  return paragraph;
+}
+
 const HEADINGS = {
   1: HeadingLevel.HEADING_1,
   2: HeadingLevel.HEADING_2,
@@ -126,13 +142,13 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
   for (const node of nodes ?? []) {
     switch (node.type) {
       case "paragraph":
-        out.push(new Paragraph({ ...paragraphOptions(ctx, false), children: runs(node, ctx) }));
+        out.push(para({ ...paragraphOptions(ctx, false), children: runs(node, ctx) }));
         break;
 
       case "heading": {
         const level = (node.attrs?.level ?? 1) as 1 | 2 | 3;
         out.push(
-          new Paragraph({
+          para({
             ...paragraphOptions(ctx, false),
             heading: HEADINGS[level] ?? HeadingLevel.HEADING_3,
             children: runs(node, ctx),
@@ -154,7 +170,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
           (item.content ?? []).forEach((child, index) => {
             if (child.type === "paragraph") {
               out.push(
-                new Paragraph({
+                para({
                   ...paragraphOptions(listCtx, index === 0),
                   children: runs(child, listCtx),
                 }),
@@ -171,7 +187,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
         const kind = node.attrs?.kind === "sujet" ? "sujet" : "question";
         const labelColor = kind === "sujet" && colorMode === "color" ? "BDBDBD" : kind === "sujet" ? "595959" : "737373";
         out.push(
-          new Paragraph({
+          para({
             ...blockStyle(kind),
             spacing: { before: 240, after: 0 },
             children: [
@@ -188,7 +204,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
           }),
         );
         out.push(...blocks(node.content, { ...ctx, block: kind }));
-        out.push(new Paragraph({ spacing: { after: 120 }, children: [] }));
+        out.push(para({ spacing: { after: 120 }, children: [] }));
         break;
       }
 
@@ -206,7 +222,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
           ? Math.min((IMAGE_MAX_WIDTH * percent) / 100 / img.width, IMAGE_MAX_HEIGHT / img.height)
           : Math.min(1, IMAGE_MAX_WIDTH / img.width, IMAGE_MAX_HEIGHT / img.height);
         out.push(
-          new Paragraph({
+          para({
             alignment: AlignmentType.CENTER,
             spacing: { before: 120, after: 120 },
             children: [
@@ -247,8 +263,8 @@ function table(node: JSONContent, ctx: Context): Table {
   return new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } });
 }
 
-function headingStyle(size: number) {
-  return { run: { color: BLACK, bold: true, size }, paragraph: { spacing: { before: 240, after: 120 } } };
+function headingStyle(size: number, line: number) {
+  return { run: { color: BLACK, bold: true, size, font: FONT }, paragraph: { spacing: { before: 240, after: SPACE_AFTER, line } } };
 }
 
 export type DocMeta = { title: string; authors: string };
@@ -281,19 +297,23 @@ export function buildDocx(
   meta: DocMeta,
   mode: ColorMode = "black",
   images: Map<string, LoadedImage> = new Map(),
+  pageBreaks: number[] = [],
 ): Document {
   instanceCounter = 0;
   loadedImages = images;
+  const breaks = new Set(pageBreaks);
   colorMode = mode;
   const title = meta.title || "Atelier de groupe";
   const children = [
     ...titlePage(meta),
-    ...blocks(json.content, {
-      listLevel: -1,
-      ordered: false,
-      numberingInstance: 0,
-      block: null,
-      inHeader: false,
+    // Bloc par bloc, pour placer les sauts de page aux mêmes endroits qu'à l'écran.
+    ...(json.content ?? []).flatMap((node, index) => {
+      pendingBreak = breaks.has(index);
+      const out = blocks([node], { listLevel: -1, ordered: false, numberingInstance: 0, block: null, inHeader: false });
+      // Bloc sans paragraphe (tableau) : un paragraphe vide porte le saut de page.
+      if (pendingBreak) out.unshift(new Paragraph({ pageBreakBefore: true, spacing: { before: 0, after: 0 }, children: [] }));
+      pendingBreak = false;
+      return out;
     }),
   ];
 
@@ -302,10 +322,10 @@ export function buildDocx(
     title,
     styles: {
       default: {
-        document: { run: { font: "Calibri", size: 22, color: BLACK } },
-        heading1: headingStyle(32),
-        heading2: headingStyle(28),
-        heading3: headingStyle(24),
+        document: { run: { font: FONT, size: TEXT_SIZE, color: BLACK }, paragraph: { spacing: { line: LINE } } },
+        heading1: headingStyle(41, 300),
+        heading2: headingStyle(32, 312),
+        heading3: headingStyle(26, LINE),
       },
     },
     numbering: {
@@ -324,6 +344,13 @@ export function buildDocx(
     },
     sections: [
       {
+        // Page A4 avec les mêmes marges qu'à l'écran.
+        properties: {
+          page: {
+            size: { width: 11906, height: 16838 },
+            margin: { top: Math.round(25 * MM), bottom: Math.round(25 * MM), left: Math.round(20 * MM), right: Math.round(20 * MM), footer: Math.round(10 * MM) },
+          },
+        },
         // Numéro de page centré en bas de chaque page
         footers: {
           default: new Footer({
@@ -369,10 +396,10 @@ async function loadImages(json: JSONContent): Promise<Map<string, LoadedImage>> 
   return map;
 }
 
-export async function exportToDocx(json: JSONContent, meta: DocMeta, mode: ColorMode = "black"): Promise<void> {
+export async function exportToDocx(json: JSONContent, meta: DocMeta, mode: ColorMode = "black", pageBreaks: number[] = []): Promise<void> {
   const fileName =
     meta.title.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "gestion-de-projet";
-  const blob = await Packer.toBlob(buildDocx(json, meta, mode, await loadImages(json)));
+  const blob = await Packer.toBlob(buildDocx(json, meta, mode, await loadImages(json), pageBreaks));
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
