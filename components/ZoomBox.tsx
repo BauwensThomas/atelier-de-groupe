@@ -4,33 +4,37 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export const DOC_ZOOMS = [0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
 const A4_WIDTH = (210 / 25.4) * 96; // largeur d'une page A4 en pixels
+const PHONE = 500; // en dessous : téléphone, la page s'adapte à l'écran (pas de pages A4, même seuil que la pagination)
 
-// Agrandit (ou réduit) la page comme une loupe. La page garde sa mise en page réelle (sauts de page compris) :
-// seul l'affichage est mis à l'échelle, et la place occupée suit pour pouvoir défiler.
-// À 100 %, la page est affichée telle quelle, sans cadre ni calcul (aucun mouvement pendant la frappe).
+// Page toujours mise en page à la largeur A4, sur tous les écrans : le texte tombe aux mêmes endroits pour tout
+// le monde (élèves et professeur), comme dans Word. Si la place manque (écran étroit, fichier ouvert à côté),
+// la page est réduite comme une image au lieu d'être resserrée. Le zoom choisi s'ajoute à cette réduction.
+// À l'échelle 1, la page est affichée telle quelle, sans cadre ni calcul (aucun mouvement pendant la frappe).
 // Les deux affichages ont la même structure : passer de l'un à l'autre ne recrée pas l'éditeur.
 export function ZoomBox({ zoom: wanted, children }: { zoom: number; children: ReactNode }) {
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(0);
   const [height, setHeight] = useState(0);
-  // Sur téléphone (pas de pages A4), pas de zoom : on garde le zoom du téléphone lui-même.
-  const zoom = available && available < 600 ? 1 : wanted;
-  const scaled = zoom !== 1;
 
-  // Place disponible (toujours suivie, pour savoir si on est sur téléphone).
+  const desktop = available >= PHONE;
+  const fit = desktop && available < A4_WIDTH ? available / A4_WIDTH : 1;
+  const scale = desktop ? Math.round(wanted * fit * 1000) / 1000 : 1;
+  const scaled = scale !== 1;
+
+  // Place disponible.
   useEffect(() => {
     const parent = outer.current?.parentElement;
     if (!parent) return;
     const observer = new ResizeObserver(() => {
       const style = getComputedStyle(parent);
-      setAvailable(parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+      setAvailable(Math.floor(parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)));
     });
     observer.observe(parent);
     return () => observer.disconnect();
   }, []);
 
-  // Hauteur réelle de la page, seulement quand elle est zoomée.
+  // Hauteur réelle de la page, seulement quand elle est mise à l'échelle.
   useEffect(() => {
     const content = inner.current;
     if (!scaled || !content) return;
@@ -39,18 +43,16 @@ export function ZoomBox({ zoom: wanted, children }: { zoom: number; children: Re
     return () => observer.disconnect();
   }, [scaled]);
 
-  // Même largeur de page qu'à 100 % (la place disponible, sans dépasser le format A4).
-  const width = available ? Math.min(available, A4_WIDTH) : undefined;
   return (
     <div
       ref={outer}
       className={scaled ? "zoom-box shrink-0" : "zoom-box w-full max-w-[210mm]"}
-      style={scaled && width ? { width: width * zoom, height: height * zoom } : undefined}
+      style={scaled ? { width: A4_WIDTH * scale, height: height * scale } : undefined}
     >
       <div
         ref={inner}
         className="zoom-inner"
-        style={scaled ? { width, transform: `scale(${zoom})`, transformOrigin: "top left" } : undefined}
+        style={scaled ? { width: A4_WIDTH, transform: `scale(${scale})`, transformOrigin: "top left" } : undefined}
       >
         {children}
       </div>
