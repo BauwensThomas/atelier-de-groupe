@@ -184,6 +184,35 @@ export function addReply(doc: Y.Doc, author: Author, thread: string, text: strin
   repliesArray(doc).push([{ ...author, id: crypto.randomUUID(), thread, text: body, t: Date.now(), mentions: findMentions(body, names) }]);
 }
 
+/** Professeurs venus sur le projet (retenus dans le salon des notes, pour pouvoir les citer avec @). */
+export function useProfNames(doc: Y.Doc | null): string[] {
+  const [names, setNames] = useState<string[]>([]);
+  useEffect(() => {
+    if (!doc) return;
+    const map = doc.getMap("profs");
+    const update = () => {
+      const list: string[] = [];
+      map.forEach((v) => {
+        const name = (v as { name?: unknown } | null)?.name;
+        if (typeof name === "string" && name) list.push(name);
+      });
+      setNames([...new Set(list)]);
+    };
+    map.observe(update);
+    update();
+    return () => map.unobserve(update);
+  }, [doc]);
+  return names;
+}
+
+/** Le professeur s'inscrit à son arrivée (prénom et couleur), une seule fois par changement. */
+export function registerProf(doc: Y.Doc, uid: string, name: string, color: string): void {
+  const map = doc.getMap("profs");
+  const current = map.get(uid) as { name?: string; color?: string } | undefined;
+  if (current?.name === name && current?.color === color) return;
+  map.set(uid, { name, color, t: Date.now() });
+}
+
 export function setResolved(doc: Y.Doc, thread: Thread, by: string | null): void {
   const current = threadsMap(doc).get(thread.id) as Record<string, unknown> | undefined;
   if (!current) return;

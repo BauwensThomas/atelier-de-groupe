@@ -1,7 +1,12 @@
 "use client";
 
-import { FileDown, History, ListTodo, PanelRightOpen, Printer } from "lucide-react";
-import type { ReactNode } from "react";
+import { FileDown, Folder, History, ListTodo, MessageSquare, PanelRightOpen, Printer, Upload } from "lucide-react";
+import { useRef, type ReactNode } from "react";
+import { Flyout } from "./Flyout";
+import { FileIcon } from "./FileIcon";
+import { FILE_TYPES } from "@/lib/file-types";
+import type { ProjectFile } from "@/lib/files";
+import type { Thread } from "@/lib/comments";
 import { ShareButton } from "./ShareButton";
 import type { Person, SyncState } from "./SidePanel";
 import { countdown, formatDueDate, useMinuteTick } from "@/lib/due-date";
@@ -20,6 +25,12 @@ type Props = {
   dueDate: string | null;
   onOpenTasks: () => void;
   readOnly: boolean;
+  files: ProjectFile[];
+  onOpenFile: (file: ProjectFile) => void;
+  onUploadFiles: (files: File[]) => void;
+  threads: Thread[];
+  unreadMentions: Set<string>;
+  onOpenThread: (id: string) => void;
 };
 
 const SYNC: Record<SyncState, { text: string; dot: string }> = {
@@ -50,6 +61,8 @@ export function CollapsedPanel(props: Props) {
   const status = SYNC[props.sync];
   useMinuteTick();
   const left = props.dueDate ? countdown(props.dueDate) : null;
+  const upload = useRef<HTMLInputElement>(null);
+  const openThreads = props.threads.filter((t) => !t.resolved);
 
   return (
     <div className="flex flex-col items-center gap-2 rounded-lg bg-white py-2 shadow-sm ring-1 ring-neutral-200">
@@ -99,6 +112,114 @@ export function CollapsedPanel(props: Props) {
           </li>
         ))}
       </ul>
+      )}
+
+      <span className="h-px w-6 bg-neutral-200" aria-hidden />
+
+      {/* Commentaires : nombre de commentaires ouverts, et @ quand on est cité. */}
+      <Flyout
+        label="Commentaires"
+        title="Commentaires ouverts"
+        icon={<MessageSquare size={16} aria-hidden />}
+        badge={
+          props.unreadMentions.size > 0 ? (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-600 px-0.5 text-[9px] font-bold text-white">@</span>
+          ) : openThreads.length > 0 ? (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-700 px-0.5 text-[9px] font-bold text-white">
+              {openThreads.length}
+            </span>
+          ) : null
+        }
+      >
+        {(close) =>
+          openThreads.length ? (
+            <ul className="flex flex-col gap-0.5">
+              {openThreads.map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      close();
+                      props.onOpenThread(t.id);
+                    }}
+                    className={`flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left text-xs hover:bg-neutral-100 ${t.prof ? "bg-fuchsia-50" : ""}`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} aria-hidden />
+                      <span className="font-medium">{t.name}</span>
+                      {props.unreadMentions.has(t.id) && <span className="rounded bg-sky-600 px-1 text-[10px] font-semibold text-white">Cité</span>}
+                    </span>
+                    <span className="line-clamp-2 text-neutral-700">{t.text}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="p-2 text-xs text-neutral-500">Aucun commentaire ouvert.</p>
+          )
+        }
+      </Flyout>
+
+      {/* Fichiers du projet (pas pour le professeur) : ouvrir à côté du document, ou en ajouter. */}
+      {!props.readOnly && (
+        <Flyout
+          label="Fichiers"
+          title="Fichiers du projet"
+          icon={<Folder size={16} aria-hidden />}
+          badge={
+            props.files.length > 0 ? (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-700 px-0.5 text-[9px] font-bold text-white">
+                {props.files.length}
+              </span>
+            ) : null
+          }
+        >
+          {(close) => (
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => upload.current?.click()}
+                className="flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium ring-1 ring-neutral-300 hover:bg-neutral-50"
+              >
+                <Upload size={13} aria-hidden />
+                Ajouter un fichier
+              </button>
+              <input
+                ref={upload}
+                type="file"
+                multiple
+                accept={Object.keys(FILE_TYPES).map((e) => `.${e}`).join(",")}
+                className="hidden"
+                onChange={(e) => {
+                  props.onUploadFiles(Array.from(e.target.files ?? []));
+                  e.target.value = "";
+                  close();
+                }}
+              />
+              {props.files.length ? (
+                <ul className="flex flex-col gap-0.5">
+                  {props.files.map((f) => (
+                    <li key={f.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          close();
+                          props.onOpenFile(f);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-neutral-100"
+                      >
+                        <FileIcon ext={f.ext} />
+                        <span className="truncate">{f.name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="p-2 text-xs text-neutral-500">Aucun fichier pour le moment.</p>
+              )}
+            </div>
+          )}
+        </Flyout>
       )}
 
       <span className="h-px w-6 bg-neutral-200" aria-hidden />

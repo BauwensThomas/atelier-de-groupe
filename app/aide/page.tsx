@@ -215,7 +215,8 @@ export default function HelpPage() {
               Clique sur un fichier pour l&apos;<strong>ouvrir à côté du document</strong>. Le bouton à double flèche le
               passe de l&apos;autre côté. Word, Excel et PowerPoint s&apos;affichent comme dans Office grâce à la visionneuse
               de Microsoft (le fichier passe par Microsoft le temps de l&apos;affichage) ; « Aperçu simplifié » les affiche
-              sans quitter le site. Pour une image, utilise le zoom ou Ctrl + molette.
+              sans quitter le site. Les boutons − et + zooment, le bouton plein écran agrandit le fichier, et la bordure entre
+              le document et le fichier se fait glisser pour changer les largeurs.
             </li>
           </Points>
         </Section>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeftRight, Download, Maximize2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeftRight, Download, Expand, Maximize2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { FILE_TYPES, formatSize, officeLimit, type FileKind } from "@/lib/file-types";
 import { fileUrl, type ProjectFile } from "@/lib/files";
 import { FileIcon } from "./FileIcon";
@@ -160,6 +160,8 @@ function ExcelView({ file }: { file: ProjectFile }) {
   const [sheets, setSheets] = useState<Grid[] | null>(null);
   const [error, setError] = useState(false);
   const [active, setActive] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const change = (factor: number) => setZoom((z) => Math.min(3, Math.max(0.4, Math.round(z * factor * 100) / 100)));
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -199,8 +201,20 @@ function ExcelView({ file }: { file: ProjectFile }) {
           ))}
         </div>
       )}
+      <div className="flex items-center gap-1 border-b border-neutral-200 bg-white px-2 py-1">
+        <button type="button" onClick={() => change(1 / 1.25)} disabled={zoom <= 0.4} title="Dézoomer" aria-label="Dézoomer" className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-100 disabled:opacity-40">
+          <ZoomOut size={15} aria-hidden />
+        </button>
+        <span className="w-12 text-center text-xs text-neutral-600 tabular-nums">{Math.round(zoom * 100)} %</span>
+        <button type="button" onClick={() => change(1.25)} disabled={zoom >= 3} title="Zoomer" aria-label="Zoomer" className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-100 disabled:opacity-40">
+          <ZoomIn size={15} aria-hidden />
+        </button>
+        <button type="button" onClick={() => setZoom(1)} className="rounded-md px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100">
+          100 %
+        </button>
+      </div>
       <div className="overflow-auto">
-        <table className="border-collapse bg-white text-xs">
+        <table className="border-collapse bg-white text-xs" style={{ zoom }}>
           <thead>
             <tr>
               <th className="sticky top-0 left-0 z-20 border border-neutral-300 bg-neutral-100" />
@@ -351,9 +365,47 @@ function MicrosoftView({ file }: { file: ProjectFile }) {
       alive = false;
     };
   }, [file]);
+  // Zoom : la page Microsoft est agrandie (ou réduite) et on fait défiler autour.
+  const [zoom, setZoom] = useState(1);
+  const box = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [src]);
+  const button = "flex h-7 w-7 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-100";
+  const change = (factor: number) => setZoom((z) => Math.min(3, Math.max(0.5, Math.round(z * factor * 100) / 100)));
+
   if (error) return <Message>Affichage impossible pour le moment. Essaie l&apos;aperçu simplifié, ou télécharge le fichier.</Message>;
   if (!src) return <Message>Ouverture…</Message>;
-  return <iframe src={src} title={file.name} className="h-full min-h-[70vh] w-full border-0 bg-white" />;
+  return (
+    <div className="flex h-full min-h-[60vh] flex-col">
+      <div className="flex items-center gap-1 border-b border-neutral-200 bg-white px-2 py-1">
+        <button type="button" className={button} onClick={() => change(1 / 1.25)} disabled={zoom <= 0.5} title="Dézoomer" aria-label="Dézoomer">
+          <ZoomOut size={15} aria-hidden />
+        </button>
+        <span className="w-12 text-center text-xs text-neutral-600 tabular-nums">{Math.round(zoom * 100)} %</span>
+        <button type="button" className={button} onClick={() => change(1.25)} disabled={zoom >= 3} title="Zoomer" aria-label="Zoomer">
+          <ZoomIn size={15} aria-hidden />
+        </button>
+        <button type="button" className={`${button} w-auto gap-1 px-2 text-xs`} onClick={() => setZoom(1)} title="Ajuster à la place disponible">
+          <Maximize2 size={13} aria-hidden />
+          Ajuster
+        </button>
+      </div>
+      <div ref={box} className="min-h-0 flex-1 overflow-auto">
+        <iframe
+          src={src}
+          title={file.name}
+          className="block border-0 bg-white"
+          style={size.w ? { width: size.w * zoom, height: size.h * zoom } : { width: "100%", height: "100%" }}
+        />
+      </div>
+    </div>
+  );
 }
 
 /** Microsoft ne peut pas lire un fichier sur l'ordinateur de développement (localhost). */
@@ -425,8 +477,9 @@ function Body({ file, kind }: { file: ProjectFile; kind: FileKind }) {
 
 export function FileViewer({ file, onClose, onSwap }: Props) {
   const kind = FILE_TYPES[file.ext]?.kind ?? "other";
+  const section = useRef<HTMLElement>(null);
   return (
-    <section className="no-print flex h-[75vh] min-w-0 flex-col overflow-hidden rounded-xl bg-white ring-1 ring-neutral-200 lg:h-[calc(100vh-2rem)]" aria-label={`Fichier : ${file.name}`}>
+    <section ref={section} className="file-viewer no-print flex h-[75vh] min-w-0 flex-col overflow-hidden rounded-xl bg-white ring-1 ring-neutral-200 lg:h-[calc(100vh-2rem)]" aria-label={`Fichier : ${file.name}`}>
       <div className="flex items-center gap-2 border-b border-neutral-200 px-3 py-2">
         <FileIcon ext={file.ext} />
         <h2 className="min-w-0 flex-1 truncate text-sm font-medium" title={file.name}>
@@ -434,6 +487,15 @@ export function FileViewer({ file, onClose, onSwap }: Props) {
         </h2>
         <button type="button" onClick={onSwap} title="Changer de côté" aria-label="Changer de côté" className="hidden rounded-md p-1.5 text-neutral-600 hover:bg-neutral-100 lg:block">
           <ArrowLeftRight size={15} aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={() => (document.fullscreenElement ? document.exitFullscreen() : section.current?.requestFullscreen())?.catch(() => {})}
+          title="Plein écran (Échap pour sortir)"
+          aria-label="Plein écran"
+          className="rounded-md p-1.5 text-neutral-600 hover:bg-neutral-100"
+        >
+          <Expand size={15} aria-hidden />
         </button>
         <a href={fileUrl(file, true)} title="Télécharger" aria-label="Télécharger" className="rounded-md p-1.5 text-neutral-600 hover:bg-neutral-100">
           <Download size={15} aria-hidden />

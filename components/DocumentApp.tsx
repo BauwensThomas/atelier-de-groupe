@@ -28,6 +28,8 @@ import {
   anchorSelection,
   deleteThread,
   mentions,
+  registerProf,
+  useProfNames,
   notesRoomId,
   resolveAnchor,
   setResolved,
@@ -517,13 +519,19 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   const thread = openThread ? (threads.find((t) => t.id === openThread) ?? null) : null;
 
   // Mentions @prénom : prénoms proposés (élèves, et professeurs qui ont écrit une note), sauf le sien.
+  // Le professeur s'inscrit dans le salon des notes : on peut le citer même quand il n'est pas connecté.
+  const profNames = useProfNames(notes?.doc ?? null);
+  useEffect(() => {
+    if (readOnly && notes && identity && myId) registerProf(notes.doc, myId, identity.name, identity.color);
+  }, [readOnly, notes, identity, myId]);
   const mentionNames = useMemo(() => {
     const names = new Set<string>();
-    for (const p of people) if (p.name && !p.prof) names.add(p.name);
+    for (const p of people) if (p.name) names.add(p.name);
     for (const t of threads) if (t.prof && t.name) names.add(t.name);
+    for (const n of profNames) names.add(n);
     if (identity?.name) names.delete(identity.name);
     return [...names].sort((a, b) => a.localeCompare(b, "fr"));
-  }, [people, threads, identity]);
+  }, [people, threads, profNames, identity]);
 
   // Messages où l'on est cité, et ceux déjà vus (retenus dans ce navigateur).
   const seenKey = `gp.mentionsSeen.${project.slug}${readOnly ? ".prof" : ""}`;
@@ -593,6 +601,49 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   const openFile = readOnly ? null : (files.find((f) => f.id === openFileId) ?? null);
   const [uploads, setUploads] = useState<Array<{ name: string; percent: number }>>([]);
   const [fileSide, setFileSide] = useState<"left" | "right">("right");
+  // Largeur du fichier (en % de la zone), réglée en faisant glisser la bordure.
+  const FILE_WIDTH = 45;
+  const [fileWidth, setFileWidth] = useState(FILE_WIDTH);
+  const [resizing, setResizing] = useState(false);
+  const splitRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    try {
+      const saved = Number(window.localStorage.getItem("gp.fileWidth"));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved >= 20 && saved <= 75) setFileWidth(saved);
+    } catch {
+      // stockage indisponible : largeur par défaut
+    }
+  }, []);
+  const saveFileWidth = useCallback((value: number) => {
+    const clamped = Math.round(Math.min(75, Math.max(20, value)));
+    setFileWidth(clamped);
+    try {
+      window.localStorage.setItem("gp.fileWidth", String(clamped));
+    } catch {
+      // stockage indisponible
+    }
+  }, []);
+  const startResize = useCallback(
+    (event: React.PointerEvent) => {
+      event.preventDefault();
+      const box = splitRef.current?.getBoundingClientRect();
+      if (!box) return;
+      setResizing(true);
+      const move = (e: PointerEvent) => {
+        const percent = fileSide === "right" ? ((box.right - e.clientX) / box.width) * 100 : ((e.clientX - box.left) / box.width) * 100;
+        saveFileWidth(percent);
+      };
+      const stop = () => {
+        setResizing(false);
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", stop);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", stop);
+    },
+    [fileSide, saveFileWidth],
+  );
   useEffect(() => {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -743,14 +794,43 @@ Il sera supprimé pour tout le groupe.`,
       <div className="print-reset flex flex-col gap-4 p-2 sm:p-4 lg:flex-row lg:items-start">
         {/* overflow-clip (et non overflow-hidden) : garde les coins arrondis sans empêcher la barre d'outils de rester en haut */}
         {/* Document, avec le fichier ouvert à côté (à gauche ou à droite). */}
-        <div className={`print-reset flex min-w-0 flex-1 flex-col gap-4 ${openFile ? "lg:flex-row lg:items-start" : ""}`}>
+        <div ref={splitRef} className={`print-reset flex min-w-0 flex-1 flex-col gap-4 ${openFile ? "lg:flex-row lg:items-start lg:gap-0" : ""}`}>
         {openFile && (
           // Accroché en haut de l'écran : le fichier reste visible pendant qu'on fait défiler le document.
-          <div className={`min-w-0 lg:sticky lg:top-4 lg:w-[45%] lg:shrink-0 lg:self-start ${fileSide === "left" ? "lg:order-first" : "lg:order-last"}`}>
+          <div
+            className={`min-w-0 lg:sticky lg:top-4 lg:w-(--file-width) lg:shrink-0 lg:self-start ${fileSide === "left" ? "lg:order-1" : "lg:order-3"}`}
+            style={{ "--file-width": `${fileWidth}%` } as React.CSSProperties}
+          >
             <FileViewer file={openFile} onClose={() => setOpenFileId(null)} onSwap={swapFileSide} />
           </div>
         )}
-        <main className="print-reset min-w-0 flex-1 overflow-clip rounded-xl bg-neutral-200/60 ring-1 ring-neutral-200">
+        {openFile && (
+          // Bordure entre le document et le fichier : la faire glisser change les largeurs (double-clic : largeur de départ).
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Largeur du fichier"
+            aria-valuenow={fileWidth}
+            aria-valuemin={20}
+            aria-valuemax={75}
+            tabIndex={0}
+            title="Glisser pour agrandir ou rétrécir (double-clic : largeur de départ)"
+            onPointerDown={startResize}
+            onDoubleClick={() => saveFileWidth(FILE_WIDTH)}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+              e.preventDefault();
+              const towardsFile = (e.key === "ArrowLeft") === (fileSide === "right");
+              saveFileWidth(fileWidth + (towardsFile ? 5 : -5));
+            }}
+            className="group no-print hidden w-4 shrink-0 cursor-col-resize items-center justify-center self-start outline-none lg:sticky lg:top-4 lg:order-2 lg:flex lg:h-[calc(100vh-2rem)]"
+          >
+            <span className={`h-16 w-1.5 rounded-full transition-colors ${resizing ? "bg-sky-600" : "bg-neutral-300 group-hover:bg-sky-500 group-focus-visible:bg-sky-500"}`} />
+          </div>
+        )}
+        {/* Pendant le glissement, un voile capte la souris (sinon la visionneuse la garderait). */}
+        {resizing && <div className="fixed inset-0 z-50 cursor-col-resize" aria-hidden />}
+        <main className={`print-reset min-w-0 flex-1 overflow-clip rounded-xl bg-neutral-200/60 ring-1 ring-neutral-200 ${fileSide === "left" ? "lg:order-3" : "lg:order-1"}`}>
           {loaded ? (
             <>
             <SheetTabs
@@ -823,6 +903,12 @@ Il sera supprimé pour tout le groupe.`,
                 dueDate={dueDate}
                 onOpenTasks={() => setTasksOpen(true)}
                 readOnly={readOnly}
+                files={files}
+                onOpenFile={(f) => setOpenFileId(f.id)}
+                onUploadFiles={onUploadFiles}
+                threads={threads}
+                unreadMentions={unreadMentions}
+                onOpenThread={openComment}
               />
             </div>
           )}
