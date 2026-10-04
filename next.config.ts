@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   agentRules: false,
@@ -23,4 +24,16 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry (suivi des erreurs) : les rapports passent par /monitoring sur notre site (pas bloqués par les
+// bloqueurs de pub). Au déploiement, les correspondances avec le code source sont envoyées à Sentry puis effacées
+// (jamais publiées sur le site). Le jeton SENTRY_AUTH_TOKEN reste côté serveur (Vercel et .env.local).
+export default withSentryConfig(nextConfig, {
+  org: "atelier-de-groupe",
+  project: "javascript-nextjs",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  tunnelRoute: "/monitoring",
+  widenClientFileUpload: true,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN, deleteSourcemapsAfterUpload: true },
+});

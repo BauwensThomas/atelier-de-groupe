@@ -2,7 +2,7 @@
 
 Document collaboratif pour un groupe de 4. On colle les questions d'un PDF d'exercices dans des blocs "Question", et chacun écrit ses réponses dans sa couleur, en même temps que les autres.
 
-Stack : Next.js 16 (App Router, TypeScript, Tailwind), TipTap + Yjs, Liveblocks (temps réel et sauvegarde du document), Vercel Blob (images et fichiers, en privé), Resend (e-mails), Cloudflare Turnstile (anti-robot), docx (export Word), docx-preview, SheetJS et JSZip (aperçus de fichiers).
+Stack : Next.js 16 (App Router, TypeScript, Tailwind), TipTap + Yjs, Liveblocks (temps réel et sauvegarde du document), Vercel Blob (images et fichiers, en privé), Resend (e-mails), Cloudflare Turnstile (anti-robot), Sentry (suivi des erreurs, région EU), docx (export Word), docx-preview, SheetJS et JSZip (aperçus de fichiers).
 
 En ligne : https://ateliergroup.vercel.app (mode d'emploi sur `/aide`).
 
@@ -41,6 +41,8 @@ Les secrets sont lus uniquement côté serveur. Aucune variable secrète ne comm
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Facultatif : clé de site Turnstile (pas secrète) |
 | `BLOB_READ_WRITE_TOKEN` | Jeton du stockage Vercel Blob (images et fichiers). Sans lui, images et fichiers sont désactivés |
 | `BLOB_STORE_ID` | Identifiant du stockage Vercel Blob (ajouté par Vercel avec le jeton) |
+| `NEXT_PUBLIC_SENTRY_DSN` | Facultatif : adresse d'envoi des erreurs à Sentry (publique par conception). Sans elle, Sentry est désactivé |
+| `SENTRY_AUTH_TOKEN` | Facultatif : jeton secret Sentry, pour envoyer au déploiement les correspondances avec le code source (lignes exactes des erreurs) |
 
 En local sans `RESEND_API_KEY`, le lien de décision d'une demande s'affiche dans le terminal de `npm run dev`.
 
@@ -127,3 +129,4 @@ Pour changer une variable plus tard : projet Vercel, onglet "Settings", puis "En
 - Nettoyage du stockage : les images et fichiers qui ne servent plus (ni dans les feuilles, ni dans les versions, ni dans la liste des fichiers) sont effacés après 7 jours ; tout est effacé quand un projet est refusé.
 - En-têtes de sécurité sur tout le site : `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (pas de caméra, micro ni position).
 - Pare-feu Vercel : 60 envois par minute et par IP au plus vers `/api/projects/`.
+- Sentry (erreurs du navigateur et du serveur, région EU) : seulement les erreurs (pas de suivi des performances ni d'enregistrement d'écran), aucune donnée personnelle (pas d'IP, de cookies, d'en-têtes ni de contenu). Les adresses sont coupées avant `?` et `#` (jeton de décision, clé du lien professeur) et les liens de la visionneuse perdent leur jeton (`lib/sentry-scrub.ts`). Les rapports passent par `/monitoring` sur le site. Les correspondances avec le code sont envoyées à Sentry au déploiement puis effacées, jamais publiées.
