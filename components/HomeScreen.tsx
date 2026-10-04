@@ -221,6 +221,8 @@ function RequestForm({ onSent }: { onSent: (name: string) => void }) {
   useEffect(() => {
     const name = form.name.trim();
     if (!name) {
+      // Champ vidé : on efface tout de suite l'indication de disponibilité.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAvailability({ state: "idle" });
       return;
     }

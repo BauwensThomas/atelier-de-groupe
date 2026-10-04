@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FileDown, History, LayoutGrid, LogOut, PanelRightClose, Pencil, Printer, UserMinus, X } from "lucide-react";
 import { ShareButton } from "./ShareButton";
 import type { Identity } from "@/lib/identity";
@@ -100,10 +101,10 @@ export function SidePanel(props: Props) {
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Projet</h2>
           <div className="flex items-center gap-1">
-            <a href="/" className="flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-800">
+            <Link href="/" className="flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-800">
               <LayoutGrid size={12} aria-hidden />
               Mes projets
-            </a>
+            </Link>
             <button
               type="button"
               onClick={props.onCollapse}

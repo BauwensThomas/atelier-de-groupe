@@ -57,6 +57,9 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
     uploadRef.current = onUploadImage;
   }, [onBlocked, onOpenThread, onUploadImage]);
 
+  // L'éditeur est créé une seule fois : il lit l'identité et le mode à sa création, puis les fonctions
+  // ci-dessous (getUser, onBlocked…) ne lisent les refs que pendant l'édition, jamais pendant l'affichage.
+  /* eslint-disable react-hooks/refs */
   const editor = useEditor({
     immediatelyRender: false,
     editable: Boolean(identityRef.current) && !readOnly,
@@ -93,6 +96,7 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
       attributes: { spellcheck: "true", "aria-label": "Document du groupe" },
     },
   });
+  /* eslint-enable react-hooks/refs */
 
   useEffect(() => {
     onReady(editor);

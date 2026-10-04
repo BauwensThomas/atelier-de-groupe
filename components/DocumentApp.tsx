@@ -173,7 +173,8 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     const keyOf = (name: string, id: string, prof = false) => (prof ? "prof:" : "") + (name ? name.toLowerCase() : `id:${id}`);
     const me: Person = {
       key: "me", memberIds: [myId], name: identity?.name ?? "", color: identity?.color ?? "",
-      me: true, online: true, typing, seen: Date.now(), prof: readOnly,
+      // seen : utile seulement hors ligne (calculé plus bas).
+      me: true, online: true, typing, seen: 0, prof: readOnly,
     };
     byName.set(keyOf(me.name, myId, readOnly), me);
     for (const o of others) {
@@ -184,7 +185,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
         existing.typing = existing.typing || o.typing;
         continue;
       }
-      byName.set(k, { key: o.key, memberIds: [o.id], name: o.name, color: o.color, me: false, online: true, typing: o.typing, seen: Date.now(), prof: o.prof });
+      byName.set(k, { key: o.key, memberIds: [o.id], name: o.name, color: o.color, me: false, online: true, typing: o.typing, seen: 0, prof: o.prof });
     }
     for (const m of members) {
       const k = keyOf(m.name, m.id);
