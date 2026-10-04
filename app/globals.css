@@ -294,6 +294,13 @@ body {
     display: none !important;
   }
 
+  /* Lignes vides en fin de document ou juste avant un saut de page : elles ne montrent rien mais peuvent
+     glisser sur une page de plus et créer une page blanche. Elles ne sont pas imprimées. */
+  .tiptap > p.is-empty:not(:has(~ :not(p.is-empty, .page-end))),
+  .tiptap > p.is-empty:has(+ .page-break) {
+    display: none !important;
+  }
+
   /* Comme à l'écran, un bloc n'est jamais coupé entre deux pages. */
   .tiptap > * {
     break-inside: avoid;

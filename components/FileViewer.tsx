@@ -481,7 +481,7 @@ export function FileViewer({ file, onClose, onSwap }: Props) {
   const kind = FILE_TYPES[file.ext]?.kind ?? "other";
   const section = useRef<HTMLElement>(null);
   return (
-    <section ref={section} className="file-viewer no-print flex h-[75vh] min-w-0 flex-col overflow-hidden rounded-xl bg-white ring-1 ring-neutral-200 lg:h-[calc(100vh-2rem)]" aria-label={`Fichier : ${file.name}`}>
+    <section ref={section} className="file-viewer no-print flex h-[75vh] min-w-0 flex-col overflow-hidden rounded-xl bg-white ring-1 ring-neutral-200 lg:h-[calc(100vh-1rem)]" aria-label={`Fichier : ${file.name}`}>
       <div className="flex items-center gap-2 border-b border-neutral-200 px-3 py-2">
         <FileIcon ext={file.ext} />
         <h2 className="min-w-0 flex-1 truncate text-sm font-medium" title={file.name}>

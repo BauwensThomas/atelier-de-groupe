@@ -126,7 +126,7 @@ export function Toolbar({ editor, onComment, onUploadImage, readOnly = false, zo
   const chain = () => editor.chain().focus();
 
   return (
-    <div className="no-print sticky top-0 z-20 flex flex-wrap items-center gap-0.5 border-b border-neutral-200 bg-white/95 px-2 py-1.5 backdrop-blur">
+    <div className="no-print flex flex-wrap items-center gap-0.5 border-b border-neutral-200 bg-white/95 px-2 py-1.5 backdrop-blur">
       {!readOnly && (
       <>
       <ToolButton label="Titre 1" active={state.h1} disabled={off} onClick={() => chain().toggleHeading({ level: 1 }).run()}>

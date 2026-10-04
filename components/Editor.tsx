@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent, type RefObject } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { EditorContent, useEditor, type Editor as TiptapEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TableKit } from "@tiptap/extension-table";
@@ -40,13 +40,15 @@ type Props = {
   field: string;
   /** Titre et auteurs : seulement sur la feuille principale. */
   showHeader: boolean;
+  /** Onglets des feuilles, collés en haut avec la barre d'outils. */
+  tabs?: ReactNode;
 };
 
 type Tip = { name: string; x: number; y: number } | null;
 
 const GUEST = { name: "Invité", color: "#6b7280" };
 
-export function Editor({ provider, identity, identityRef, onBlocked, onReady, onHeaderEdited, readOnly, onOpenThread, onComment, onUploadImage, field, showHeader }: Props) {
+export function Editor({ provider, identity, identityRef, onBlocked, onReady, onHeaderEdited, readOnly, onOpenThread, onComment, onUploadImage, field, showHeader, tabs }: Props) {
   const onBlockedRef = useRef(onBlocked);
   const onOpenThreadRef = useRef(onOpenThread);
   const uploadRef = useRef(onUploadImage);
@@ -121,7 +123,9 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
         link: false,
       }),
       TableKit.configure({ table: { resizable: false } }),
-      Placeholder.configure({ placeholder: "Colle ici les questions, puis écris vos réponses." }),
+      // showOnlyCurrent: false : toutes les lignes vides portent la classe "is-empty" (utile à l'impression).
+      // Le texte d'aide ne s'affiche toujours que dans un document vide (voir globals.css).
+      Placeholder.configure({ placeholder: "Colle ici les questions, puis écris vos réponses.", showOnlyCurrent: false, showOnlyWhenEditable: false }),
       Collaboration.configure({ document: provider.getYDoc(), field }),
       CollaborationCaret.configure({
         provider,
@@ -171,7 +175,15 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
 
   return (
     <div className="flex flex-col">
-      {editor && <Toolbar editor={editor} zoom={zoom} onZoom={changeZoom} readOnly={readOnly} onComment={identity ? onComment : undefined} onUploadImage={readOnly ? undefined : onUploadImage} />}
+      {/* Onglets des feuilles et barre d'outils : collés à 8 px du haut, leur position de départ, donc immobiles au
+          défilement. Il a ses propres coins arrondis et son contour, posés sur ceux de la carte : même aspect en haut
+          de page et pendant le défilement (avant, les bords de la carte semblaient monter jusqu'en haut). La zone
+          "before", couleur du fond, cache les bords de la carte autour des coins arrondis ; le contour ("after") est
+          dessiné au-dessus de tout pour fermer le cadre en haut. */}
+      <div className="no-print sticky top-2 z-20 -mx-px -mt-px rounded-t-xl bg-neutral-100 before:absolute before:-inset-x-1 before:-top-2 before:-z-10 before:h-5 before:bg-neutral-100 after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-t-xl after:border after:border-b-0 after:border-neutral-200">
+        {tabs}
+        {editor && <Toolbar editor={editor} zoom={zoom} onZoom={changeZoom} readOnly={readOnly} onComment={identity ? onComment : undefined} onUploadImage={readOnly ? undefined : onUploadImage} />}
+      </div>
       <div
         ref={area}
         onScroll={() => sync(area.current, bar.current)}

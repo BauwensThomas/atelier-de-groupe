@@ -62,7 +62,7 @@ export function IdentityDialog({ initial, takenColors, onSave, onCancel, fixedCo
         ) : (
         <fieldset className="mt-4">
           <legend className="mb-2 text-sm font-medium">Couleur</legend>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {PALETTE.map((c) => {
               const taken = takenColors.has(c.value) && c.value !== initial?.color;
               const selected = color === c.value;

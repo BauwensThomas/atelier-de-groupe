@@ -6,6 +6,7 @@ import {
   Footer,
   HeadingLevel,
   ImageRun,
+  LineRuleType,
   LevelFormat,
   Packer,
   PageNumber,
@@ -20,13 +21,22 @@ import {
 } from "docx";
 
 const BLACK = "000000";
-// Mêmes réglages qu'à l'écran (globals.css) : texte 11,5 pt, interligne 1,6, 0,6 em entre les blocs,
-// titres 1,8 / 1,4 / 1,15 em, marges de 25 mm en haut et en bas et 20 mm sur les côtés.
+// Mêmes hauteurs qu'à l'écran (globals.css), en vingtièmes de point (1 pixel = 15) : Word doit couper
+// les pages aux mêmes endroits. Interlignes "exacts" (Word compterait sinon 1,6 fois la hauteur de la police,
+// soit 15 % de plus), espaces entre blocs comme les marges CSS (la plus grande des deux, pas leur somme).
 const FONT = "Arial"; // proche d'Inter (police de l'écran) et présente sur tous les ordinateurs
-const TEXT_SIZE = 23; // en demi-points
-const LINE = 384; // interligne 1,6 (240 = simple)
-const SPACE_AFTER = 138; // 0,6 em en vingtièmes de point
+const TEXT_SIZE = 23; // 11,5 pt, en demi-points
+const LINE = 368; // interligne de l'écran : 1,6 x 11,5 pt
+const GAP = 138; // 0,6 em entre deux blocs
+const HEADING = {
+  1: { size: 41, line: 518, margin: 414 },
+  2: { size: 32, line: 419, margin: 290 },
+  3: { size: 26, line: 423, margin: 212 },
+} as const;
+const QUESTION_MARGIN = 230; // 1 em au-dessus et au-dessous d'un bloc question
+const IMAGE_MARGIN = 180; // 0,75 rem
 const MM = 56.7; // vingtièmes de point par millimètre
+const exact = (line: number) => ({ line, lineRule: LineRuleType.EXACT });
 
 /** "2026-09-30" devient "30 septembre 2026". */
 function formatDate(iso: unknown): string {
@@ -49,6 +59,7 @@ let instanceCounter = 0;
 /** "color" : texte dans la couleur de son auteur ; "black" : tout en noir. */
 export type ColorMode = "color" | "black";
 let colorMode: ColorMode = "black";
+let authorColors = new Map<string, string>();
 
 /** Images du document, téléchargées avant de construire le fichier (adresse vers données et taille). */
 export type LoadedImage = { data: ArrayBuffer; type: "jpg" | "png" | "gif"; width: number; height: number };
@@ -89,24 +100,26 @@ function blockFill(kind: "question" | "sujet"): string {
 function textColor(ctx: Context, marks: JSONContent["marks"] = []): string {
   if (ctx.block === "sujet") return colorMode === "color" ? "FFFFFF" : BLACK;
   if (ctx.block === "question" || colorMode === "black") return BLACK;
-  // Couleur de l'auteur, comme dans l'éditeur.
+  // Couleur actuelle de l'auteur (sinon celle enregistrée avec le texte), comme dans l'éditeur.
   const author = (marks ?? []).find((m) => m.type === "author");
-  const color = typeof author?.attrs?.color === "string" ? author.attrs.color : "";
+  const name = typeof author?.attrs?.name === "string" ? author.attrs.name : "";
+  const color = authorColors.get(name) ?? (typeof author?.attrs?.color === "string" ? author.attrs.color : "");
   return /^#[0-9a-fA-F]{6}$/.test(color) ? color.slice(1).toUpperCase() : BLACK;
 }
 
 function blockStyle(kind: "question" | "sujet"): Partial<IParagraphOptions> {
   const fill = blockFill(kind);
-  const edge = { style: BorderStyle.SINGLE, size: 1, color: fill, space: 6 };
+  const edge = (space: number) => ({ style: BorderStyle.SINGLE, size: 1, color: fill, space });
   return {
     shading: { type: ShadingType.CLEAR, color: "auto", fill },
-    border: { top: edge, bottom: edge, left: edge, right: edge },
+    // Retrait intérieur comme à l'écran : 6 px en haut, 8 px en bas, 12 px sur les côtés (en points).
+    border: { top: edge(4), bottom: edge(6), left: edge(9), right: edge(9) },
     indent: { left: 120, right: 120 },
   };
 }
 
 function paragraphOptions(ctx: Context, listItemFirst: boolean): Partial<IParagraphOptions> {
-  const options: Partial<IParagraphOptions> = { spacing: { after: SPACE_AFTER } };
+  const options: Partial<IParagraphOptions> = { spacing: { before: 0, after: 0 } };
   if (ctx.listLevel >= 0 && listItemFirst) {
     if (ctx.ordered) {
       Object.assign(options, {
@@ -125,10 +138,32 @@ function paragraphOptions(ctx: Context, listItemFirst: boolean): Partial<IParagr
 // Sauts de page de l'écran : le premier paragraphe d'un bloc qui commence une page à l'écran commence aussi
 // une page dans Word ("saut de page avant").
 let pendingBreak = false;
+// Espace au-dessus du bloc (calculé pour chaque bloc du document), posé sur son premier paragraphe.
+let pendingBefore: number | null = null;
 function para(options: IParagraphOptions): Paragraph {
-  const paragraph = new Paragraph(pendingBreak ? { ...options, pageBreakBefore: true } : options);
-  pendingBreak = false;
-  return paragraph;
+  let o = options;
+  if (pendingBefore !== null) {
+    o = { ...o, spacing: { ...o.spacing, before: Math.max(pendingBefore, o.spacing?.before ?? 0) } };
+    pendingBefore = null;
+  }
+  if (pendingBreak) {
+    o = { ...o, pageBreakBefore: true };
+    pendingBreak = false;
+  }
+  return new Paragraph(o);
+}
+
+/** Marge au-dessus et au-dessous d'un bloc, comme à l'écran. */
+function marginTop(node: JSONContent): number {
+  if (node.type === "heading") return HEADING[(node.attrs?.level ?? 1) as 1 | 2 | 3]?.margin ?? GAP;
+  if (node.type === "question") return QUESTION_MARGIN;
+  if (node.type === "image") return IMAGE_MARGIN;
+  return GAP;
+}
+function marginBottom(node: JSONContent): number {
+  if (node.type === "question") return QUESTION_MARGIN;
+  if (node.type === "image") return IMAGE_MARGIN;
+  return 0;
 }
 
 const HEADINGS = {
@@ -151,6 +186,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
           para({
             ...paragraphOptions(ctx, false),
             heading: HEADINGS[level] ?? HeadingLevel.HEADING_3,
+            spacing: { before: 0, after: 0, ...exact(HEADING[level]?.line ?? LINE) },
             children: runs(node, ctx),
           }),
         );
@@ -189,7 +225,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
         out.push(
           para({
             ...blockStyle(kind),
-            spacing: { before: 240, after: 0 },
+            spacing: { before: 0, after: 0, ...exact(300) },
             children: [
               new TextRun({
                 text: node.attrs?.kind === "sujet" ? "Sujet" : "Question",
@@ -204,7 +240,6 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
           }),
         );
         out.push(...blocks(node.content, { ...ctx, block: kind }));
-        out.push(para({ spacing: { after: 120 }, children: [] }));
         break;
       }
 
@@ -224,7 +259,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
         out.push(
           para({
             alignment: AlignmentType.CENTER,
-            spacing: { before: 120, after: 120 },
+            spacing: { before: 0, after: 0 },
             children: [
               new ImageRun({
                 type: img.type,
@@ -263,33 +298,29 @@ function table(node: JSONContent, ctx: Context): Table {
   return new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } });
 }
 
-function headingStyle(size: number, line: number) {
-  return { run: { color: BLACK, bold: true, size, font: FONT }, paragraph: { spacing: { before: 240, after: SPACE_AFTER, line } } };
+function headingStyle(level: 1 | 2 | 3) {
+  return { run: { color: BLACK, bold: true, size: HEADING[level].size, font: FONT }, paragraph: { spacing: { before: 0, after: 0, ...exact(HEADING[level].line) } } };
 }
 
-export type DocMeta = { title: string; authors: string };
+/** header : titre et auteurs en haut (feuille principale seulement, comme à l'écran). */
+export type DocMeta = { title: string; authors: string; header?: boolean };
 
 function titlePage(meta: DocMeta): Paragraph[] {
-  const out: Paragraph[] = [];
-  if (meta.title) {
-    out.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 120 },
-        children: [new TextRun({ text: meta.title, bold: true, size: 40, color: BLACK })],
-      }),
-    );
-  }
-  if (meta.authors) {
-    out.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 360 },
-        children: [new TextRun({ text: meta.authors, size: 24, color: BLACK })],
-      }),
-    );
-  }
-  return out;
+  if (meta.header === false) return [];
+  // Mêmes hauteurs qu'à l'écran : titre (1,9 em, gras, lignes de 38 px), 8 px, auteurs (ligne de 24 px),
+  // 20 px, trait, puis 32 px avant le contenu. Le titre peut faire plusieurs lignes, comme à l'écran.
+  const title = new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 0, after: 0, ...exact(570) },
+    children: [new TextRun({ text: meta.title, bold: true, size: 46, color: BLACK })],
+  });
+  const authors = new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 120, after: 480, ...exact(360) },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "E5E5E5", space: 15 } },
+    children: [new TextRun({ text: meta.authors, size: 24, color: BLACK })],
+  });
+  return [title, authors];
 }
 
 export function buildDocx(
@@ -298,21 +329,29 @@ export function buildDocx(
   mode: ColorMode = "black",
   images: Map<string, LoadedImage> = new Map(),
   pageBreaks: number[] = [],
+  colors: Map<string, string> = new Map(),
 ): Document {
   instanceCounter = 0;
   loadedImages = images;
   const breaks = new Set(pageBreaks);
+  authorColors = colors;
+  let previousBottom = 0;
   colorMode = mode;
   const title = meta.title || "Atelier de groupe";
   const children = [
     ...titlePage(meta),
     // Bloc par bloc, pour placer les sauts de page aux mêmes endroits qu'à l'écran.
     ...(json.content ?? []).flatMap((node, index) => {
+      // Espace au-dessus : comme les marges de l'écran (la plus grande des deux), rien en haut d'une page.
+      const atTop = index === 0 || breaks.has(index);
       pendingBreak = breaks.has(index);
+      pendingBefore = atTop ? 0 : Math.max(previousBottom, marginTop(node));
       const out = blocks([node], { listLevel: -1, ordered: false, numberingInstance: 0, block: null, inHeader: false });
       // Bloc sans paragraphe (tableau) : un paragraphe vide porte le saut de page.
       if (pendingBreak) out.unshift(new Paragraph({ pageBreakBefore: true, spacing: { before: 0, after: 0 }, children: [] }));
       pendingBreak = false;
+      pendingBefore = null;
+      previousBottom = marginBottom(node);
       return out;
     }),
   ];
@@ -322,10 +361,10 @@ export function buildDocx(
     title,
     styles: {
       default: {
-        document: { run: { font: FONT, size: TEXT_SIZE, color: BLACK }, paragraph: { spacing: { line: LINE } } },
-        heading1: headingStyle(41, 300),
-        heading2: headingStyle(32, 312),
-        heading3: headingStyle(26, LINE),
+        document: { run: { font: FONT, size: TEXT_SIZE, color: BLACK }, paragraph: { spacing: exact(LINE) } },
+        heading1: headingStyle(1),
+        heading2: headingStyle(2),
+        heading3: headingStyle(3),
       },
     },
     numbering: {
@@ -396,10 +435,16 @@ async function loadImages(json: JSONContent): Promise<Map<string, LoadedImage>> 
   return map;
 }
 
-export async function exportToDocx(json: JSONContent, meta: DocMeta, mode: ColorMode = "black", pageBreaks: number[] = []): Promise<void> {
+export async function exportToDocx(
+  json: JSONContent,
+  meta: DocMeta,
+  mode: ColorMode = "black",
+  pageBreaks: number[] = [],
+  colors: Map<string, string> = new Map(),
+): Promise<void> {
   const fileName =
     meta.title.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "gestion-de-projet";
-  const blob = await Packer.toBlob(buildDocx(json, meta, mode, await loadImages(json), pageBreaks));
+  const blob = await Packer.toBlob(buildDocx(json, meta, mode, await loadImages(json), pageBreaks, colors));
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

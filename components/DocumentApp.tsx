@@ -15,7 +15,7 @@ import {
 import { getYjsProviderForRoom } from "@liveblocks/yjs";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { Lock, WifiOff } from "lucide-react";
-import { PROF_COLOR, saveIdentity, type Identity } from "@/lib/identity";
+import { PROF_COLOR, isPaletteColor, saveIdentity, type Identity } from "@/lib/identity";
 import { registerMember, removeMember, touchMember, useMembers } from "@/lib/members";
 import { describeTransaction, logActivity, purgeObsoleteActivity, useActivity } from "@/lib/activity";
 import { formatDueDate, setDueDate, useDueDate } from "@/lib/due-date";
@@ -315,9 +315,25 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     [provider, confirm],
   );
 
+  // Couleur actuelle de chaque auteur (par prénom) : son texte suit quand il change de couleur.
+  const authorColors = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of members) if (m.name && isPaletteColor(m.color)) map.set(m.name, m.color);
+    for (const p of people) if (p.name && !p.prof && isPaletteColor(p.color)) map.set(p.name, p.color);
+    return map;
+  }, [members, people]);
+  const authorStyle = useMemo(
+    () =>
+      [...authorColors]
+        .map(([name, color]) => `body:not(.print-black) .tiptap span[data-author="${CSS.escape(name)}"]{color:${color}!important}`)
+        .join("\n"),
+    [authorColors],
+  );
+
   const takenColors = useMemo(
-    () => new Set(others.filter((o) => o.id !== myId && o.color).map((o) => o.color)),
-    [others, myId],
+    // Pas les couleurs de ses propres autres écrans (même prénom).
+    () => new Set(others.filter((o) => o.id !== myId && o.color && o.name !== identity?.name).map((o) => o.color)),
+    [others, myId, identity],
   );
 
   const [editing, setEditing] = useState(false);
@@ -327,7 +343,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
       onIdentityChange(next);
       setEditing(false);
     },
-    [onIdentityChange],
+    [onIdentityChange, readOnly],
   );
 
   // Message discret quand on essaie de modifier une question verrouillée.
@@ -739,9 +755,11 @@ Il sera supprimé pour tout le groupe.`,
         {
           title: sheet.id === MAIN_SHEET ? doc.getText("title").toString().trim() : sheet.name,
           authors: doc.getText("authors").toString().trim(),
+          header: sheet.id === MAIN_SHEET,
         },
         mode,
         pageBreakIndices(editor.state),
+        authorColors,
       );
     } catch {
       await confirm({ title: "Export impossible", message: "L'export a échoué. Réessaie.", confirmLabel: "OK", cancelLabel: null });
@@ -785,6 +803,8 @@ Il sera supprimé pour tout le groupe.`,
 
   return (
     <div className="min-h-screen">
+      {/* Couleurs actuelles des auteurs (remplacent celle enregistrée avec le texte). */}
+      <style>{authorStyle}</style>
       {connection !== "ok" && (
         <div className="no-print sticky top-0 z-40 flex items-center justify-center gap-2 bg-amber-100 px-4 py-2 text-sm text-amber-900">
           <WifiOff size={15} aria-hidden />
@@ -794,14 +814,17 @@ Il sera supprimé pour tout le groupe.`,
         </div>
       )}
 
-      <div className="print-reset flex flex-col gap-4 p-2 sm:p-4 lg:flex-row lg:items-start">
-        {/* overflow-clip (et non overflow-hidden) : garde les coins arrondis sans empêcher la barre d'outils de rester en haut */}
+      {/* Petit espace de 8 px en haut ; le bandeau du document, le panneau et le fichier restent collés à cette hauteur.
+          Cette bande (couleur du fond, toute la largeur) cache ce qui défile dans l'espace, bords de la carte compris. */}
+      <div className="no-print sticky top-0 z-30 -mb-2 hidden h-2 bg-neutral-100 sm:block" aria-hidden />
+      <div className="print-reset flex flex-col gap-4 p-2 sm:px-4 sm:pt-2 sm:pb-4 lg:flex-row lg:items-start">
+        {/* Pas de découpe (overflow) : le bandeau du haut dessine lui-même les coins arrondis de la carte. */}
         {/* Document, avec le fichier ouvert à côté (à gauche ou à droite). */}
         <div ref={splitRef} className={`print-reset flex min-w-0 flex-1 flex-col gap-4 ${openFile ? "lg:flex-row lg:items-start lg:gap-0" : ""}`}>
         {openFile && (
           // Accroché en haut de l'écran : le fichier reste visible pendant qu'on fait défiler le document.
           <div
-            className={`min-w-0 lg:sticky lg:top-4 lg:w-(--file-width) lg:shrink-0 lg:self-start ${fileSide === "left" ? "lg:order-1" : "lg:order-3"}`}
+            className={`min-w-0 lg:sticky lg:top-2 lg:w-(--file-width) lg:shrink-0 lg:self-start ${fileSide === "left" ? "lg:order-1" : "lg:order-3"}`}
             style={{ "--file-width": `${fileWidth}%` } as React.CSSProperties}
           >
             <FileViewer file={openFile} onClose={() => setOpenFileId(null)} onSwap={swapFileSide} />
@@ -826,44 +849,46 @@ Il sera supprimé pour tout le groupe.`,
               const towardsFile = (e.key === "ArrowLeft") === (fileSide === "right");
               saveFileWidth(fileWidth + (towardsFile ? 5 : -5));
             }}
-            className="group no-print hidden w-4 shrink-0 cursor-col-resize items-center justify-center self-start outline-none lg:sticky lg:top-4 lg:order-2 lg:flex lg:h-[calc(100vh-2rem)]"
+            className="group no-print hidden w-4 shrink-0 cursor-col-resize items-center justify-center self-start outline-none lg:sticky lg:top-2 lg:order-2 lg:flex lg:h-[calc(100vh-1rem)]"
           >
             <span className={`h-16 w-1.5 rounded-full transition-colors ${resizing ? "bg-sky-600" : "bg-neutral-300 group-hover:bg-sky-500 group-focus-visible:bg-sky-500"}`} />
           </div>
         )}
         {/* Pendant le glissement, un voile capte la souris (sinon la visionneuse la garderait). */}
         {resizing && <div className="fixed inset-0 z-50 cursor-col-resize" aria-hidden />}
-        <main className={`print-reset min-w-0 flex-1 overflow-clip rounded-xl bg-neutral-200/60 ring-1 ring-neutral-200 ${fileSide === "left" ? "lg:order-3" : "lg:order-1"}`}>
+        <main className={`print-reset min-w-0 flex-1 rounded-xl bg-neutral-200/60 ring-1 ring-neutral-200 ${fileSide === "left" ? "lg:order-3" : "lg:order-1"}`}>
           {loaded ? (
             <>
-            <SheetTabs
-              sheets={sheets}
-              current={sheet.id}
-              editable={Boolean(identity) && !readOnly}
-              onSelect={selectSheet}
-              onAdd={() => {
-                const created = addSheet(provider.getYDoc(), `Feuille ${sheets.length + 1}`);
-                log("sheet-add", created.name);
-                selectSheet(created.id);
-              }}
-              onRename={(s, name) => renameSheet(provider.getYDoc(), s, name)}
-              onDelete={async (s) => {
-                const ok = await confirm({
-                  title: `Supprimer la feuille « ${s.name} » ?`,
-                  message: "La feuille disparaît pour tout le groupe. Son contenu reste gardé dans le projet par sécurité.",
-                  confirmLabel: "Supprimer",
-                  danger: true,
-                });
-                if (!ok) return;
-                deleteSheet(provider.getYDoc(), s);
-                log("sheet-delete", s.name);
-                selectSheet(MAIN_SHEET);
-              }}
-            />
             <Editor
               key={sheet.id}
               field={sheetField(sheet.id)}
               showHeader={sheet.id === MAIN_SHEET}
+              tabs={
+              <SheetTabs
+                sheets={sheets}
+                current={sheet.id}
+                editable={Boolean(identity) && !readOnly}
+                onSelect={selectSheet}
+                onAdd={() => {
+                  const created = addSheet(provider.getYDoc(), `Feuille ${sheets.length + 1}`);
+                  log("sheet-add", created.name);
+                  selectSheet(created.id);
+                }}
+                onRename={(s, name) => renameSheet(provider.getYDoc(), s, name)}
+                onDelete={async (s) => {
+                  const ok = await confirm({
+                    title: `Supprimer la feuille « ${s.name} » ?`,
+                    message: "La feuille disparaît pour tout le groupe. Son contenu reste gardé dans le projet par sécurité.",
+                    confirmLabel: "Supprimer",
+                    danger: true,
+                  });
+                  if (!ok) return;
+                  deleteSheet(provider.getYDoc(), s);
+                  log("sheet-delete", s.name);
+                  selectSheet(MAIN_SHEET);
+                }}
+              />
+              }
               provider={provider}
               identity={identity}
               identityRef={identityRef}
@@ -888,7 +913,7 @@ Il sera supprimé pour tout le groupe.`,
         {/* Panneau toujours visible pendant le défilement (avec sa propre barre s'il dépasse l'écran).
             Replié : colonne d'environ 1 cm (ordinateur seulement ; sur téléphone, le panneau reste complet). */}
         <aside
-          className={`no-print order-first lg:sticky lg:top-4 lg:order-0 lg:max-h-[calc(100vh-2rem)] lg:shrink-0 lg:self-start lg:overflow-y-auto lg:p-px ${
+          className={`no-print order-first lg:sticky lg:top-2 lg:order-0 lg:max-h-[calc(100vh-1rem)] lg:shrink-0 lg:self-start lg:overflow-y-auto lg:p-px ${
             panelCollapsed ? "lg:w-12" : "lg:w-64 xl:w-72"
           }`}
         >

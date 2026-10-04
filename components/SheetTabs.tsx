@@ -20,7 +20,7 @@ export function SheetTabs({ sheets, current, editable, onSelect, onAdd, onRename
   const [draft, setDraft] = useState("");
 
   return (
-    <div className="no-print flex items-end gap-1 overflow-x-auto border-b border-neutral-200 bg-neutral-100 px-2 pt-1.5" role="tablist" aria-label="Feuilles du projet">
+    <div className="no-print flex items-end gap-1 overflow-x-auto rounded-t-xl border-b border-neutral-200 bg-neutral-100 px-2 pt-1.5" role="tablist" aria-label="Feuilles du projet">
       {sheets.map((sheet) => {
         const active = sheet.id === current;
         if (renaming === sheet.id) {
