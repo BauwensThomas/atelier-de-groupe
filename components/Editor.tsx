@@ -77,7 +77,8 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
     update();
     return () => observer.disconnect();
   }, [zoom]);
-  const wide = overflow.scroll > overflow.client + 1;
+  // Seulement quand on zoome au-dessus de 100 % et que la page dépasse vraiment (pas pour un pixel d'arrondi).
+  const wide = zoom > 1 && overflow.scroll > overflow.client + 4;
   const syncing = useRef(false);
   function sync(from: HTMLDivElement | null, to: HTMLDivElement | null) {
     if (!from || !to || syncing.current) return;
