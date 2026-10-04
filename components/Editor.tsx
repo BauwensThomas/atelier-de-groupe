@@ -35,13 +35,17 @@ type Props = {
   onComment?: () => void;
   /** Envoi d'une image ; absent si les images ne sont pas possibles (professeur). */
   onUploadImage?: (file: File) => Promise<string | null>;
+  /** Texte Yjs de la feuille affichée. */
+  field: string;
+  /** Titre et auteurs : seulement sur la feuille principale. */
+  showHeader: boolean;
 };
 
 type Tip = { name: string; x: number; y: number } | null;
 
 const GUEST = { name: "Invité", color: "#6b7280" };
 
-export function Editor({ provider, identity, identityRef, onBlocked, onReady, onHeaderEdited, readOnly, onOpenThread, onComment, onUploadImage }: Props) {
+export function Editor({ provider, identity, identityRef, onBlocked, onReady, onHeaderEdited, readOnly, onOpenThread, onComment, onUploadImage, field, showHeader }: Props) {
   const onBlockedRef = useRef(onBlocked);
   const onOpenThreadRef = useRef(onOpenThread);
   const uploadRef = useRef(onUploadImage);
@@ -70,7 +74,7 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
       }),
       TableKit.configure({ table: { resizable: false } }),
       Placeholder.configure({ placeholder: "Colle ici les questions, puis écris vos réponses." }),
-      Collaboration.configure({ document: provider.getYDoc() }),
+      Collaboration.configure({ document: provider.getYDoc(), field }),
       CollaborationCaret.configure({
         provider,
         user: identityRef.current ?? GUEST,
@@ -121,7 +125,7 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
       {editor && <Toolbar editor={editor} readOnly={readOnly} onComment={identity ? onComment : undefined} onUploadImage={readOnly ? undefined : onUploadImage} />}
       <div className="print-reset flex justify-center px-2 py-4 sm:px-6 sm:py-8">
         <div className="page" onMouseOver={onMouseOver} onMouseLeave={() => setTip(null)}>
-          <DocHeader doc={provider.getYDoc()} editable={Boolean(identity) && !readOnly} onEdited={onHeaderEdited} />
+          {showHeader && <DocHeader doc={provider.getYDoc()} editable={Boolean(identity) && !readOnly} onEdited={onHeaderEdited} />}
           <EditorContent editor={editor} />
         </div>
       </div>

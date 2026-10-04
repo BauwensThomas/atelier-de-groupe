@@ -77,11 +77,11 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 </span>
               )}
               <div className="min-w-0">
-                <h2 id="confirm-title" className="font-semibold">
+                <h2 id="confirm-title" className="font-semibold wrap-break-word">
                   {pending.title}
                 </h2>
                 {pending.message && (
-                  <p className="mt-1 whitespace-pre-line text-sm text-neutral-600">{pending.message}</p>
+                  <p className="mt-1 whitespace-pre-line wrap-anywhere text-sm text-neutral-600">{pending.message}</p>
                 )}
               </div>
             </div>

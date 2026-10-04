@@ -201,7 +201,26 @@ export default function HelpPage() {
           </Points>
         </Section>
 
-        <Section n={9} title="Le professeur">
+        <Section n={9} title="Feuilles et fichiers">
+          <Points>
+            <li>
+              <strong>« Nouvelle feuille »</strong>, au-dessus de la barre d&apos;outils, ajoute une page blanche au projet.
+              Chaque feuille a son texte, ses versions et ses commentaires. Double-clic sur un onglet pour le renommer.
+            </li>
+            <li>
+              Carte <strong>« Fichiers »</strong> (panneau de droite) : ajoute une image, un PDF, un Word, un Excel ou un
+              PowerPoint (50 Mo maximum), ou glisse-le dans la carte. Tout le groupe le retrouve sans le renvoyer.
+            </li>
+            <li>
+              Clique sur un fichier pour l&apos;<strong>ouvrir à côté du document</strong>. Le bouton à double flèche le
+              passe de l&apos;autre côté. Word, Excel et PowerPoint s&apos;affichent comme dans Office grâce à la visionneuse
+              de Microsoft (le fichier passe par Microsoft le temps de l&apos;affichage) ; « Aperçu simplifié » les affiche
+              sans quitter le site. Pour une image, utilise le zoom ou Ctrl + molette.
+            </li>
+          </Points>
+        </Section>
+
+        <Section n={10} title="Le professeur">
           <Points>
             <li>
               Dans la carte « Projet », <strong>« Lien professeur »</strong> donne un lien à envoyer à ton professeur. Il

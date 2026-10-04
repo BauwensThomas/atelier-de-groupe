@@ -5,6 +5,7 @@ import { useEditorState, type Editor } from "@tiptap/react";
 import { Check, MessageSquare, RotateCcw, ScanText, Trash2, X } from "lucide-react";
 import { COMMENT_MAX, resolveAnchor, type Author, type Message, type Thread } from "@/lib/comments";
 import { FoldSection } from "./FoldSection";
+import { MAIN_SHEET, type Sheet } from "@/lib/sheets";
 
 function when(t: number): string {
   const d = new Date(t);
@@ -325,12 +326,14 @@ export function CommentsPanel({
   threads,
   unread,
   onOpen,
+  sheets,
 }: {
   editor: Editor | null;
   threads: Thread[];
   /** Commentaires où l'on est cité, pas encore ouverts. */
   unread: Set<string>;
   onOpen: (id: string) => void;
+  sheets: Sheet[];
 }) {
   const [showResolved, setShowResolved] = useState(false);
   const order = useOrder(editor, threads);
@@ -375,6 +378,11 @@ export function CommentsPanel({
                   </span>
                   <span className="line-clamp-2 text-neutral-700">{t.text}</span>
                   <span className="truncate text-[11px] text-neutral-400 italic">« {t.quote} »</span>
+                  {sheets.length > 1 && (
+                    <span className="truncate text-[10px] text-neutral-400">
+                      {sheets.find((s) => s.id === t.sheet)?.name ?? (t.sheet === MAIN_SHEET ? "Document principal" : "Feuille supprimée")}
+                    </span>
+                  )}
                 </button>
               </li>
             ))}

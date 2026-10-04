@@ -10,16 +10,21 @@ import { AuthorMark } from "@/lib/editor/author-mark";
 import { DeletedMark } from "@/lib/editor/track-deletions";
 import { Question } from "@/lib/editor/question";
 import { DocImage } from "@/lib/editor/image";
-import { describeReason, type Version } from "@/lib/versions";
+import { describeReason, groupVersions, versionSheet, type Version } from "@/lib/versions";
+import { MAIN_SHEET, type Sheet } from "@/lib/sheets";
 import { useConfirm } from "./ConfirmDialog";
 
 type Props = {
   versions: Version[];
   onClose: () => void;
-  onSaveNow: () => boolean;
-  onRestore: (version: Version) => void;
+  /** Enregistre toutes les feuilles ; renvoie le nombre de feuilles copiées. */
+  onSaveNow: () => number;
+  /** Restaure une ou plusieurs feuilles d'un enregistrement. */
+  onRestore: (versions: Version[]) => void;
   /** Professeur : on regarde les versions sans pouvoir en créer ni en restaurer. */
   readOnly?: boolean;
+  /** Feuilles du projet (pour nommer les feuilles de chaque enregistrement). */
+  sheets: Sheet[];
 };
 
 function when(t: number): string {
@@ -58,12 +63,24 @@ function Preview({ version }: { version: Version }) {
   );
 }
 
-export function VersionsDialog({ versions, onClose, onSaveNow, onRestore, readOnly = false }: Props) {
-  const sorted = useMemo(() => [...versions].sort((a, b) => b.t - a.t), [versions]);
-  const [selectedId, setSelectedId] = useState<string | null>(sorted[0]?.id ?? null);
+// Une ligne par enregistrement ; en cliquant dessus, les feuilles modifiées à ce moment-là, en onglets.
+export function VersionsDialog({ versions, onClose, onSaveNow, onRestore, readOnly = false, sheets }: Props) {
+  const groups = useMemo(() => groupVersions(versions), [versions]);
+  const [selectedKey, setSelectedKey] = useState<string | null>(groups[0]?.key ?? null);
+  const [sheetTab, setSheetTab] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const confirm = useConfirm();
-  const selected = sorted.find((v) => v.id === selectedId) ?? sorted[0] ?? null;
+  const group = groups.find((g) => g.key === selectedKey) ?? groups[0] ?? null;
+  // Feuilles de l'enregistrement, dans l'ordre des onglets du document.
+  const order = (v: Version) => {
+    const i = sheets.findIndex((sh) => sh.id === versionSheet(v));
+    return i < 0 ? sheets.length : i;
+  };
+  const inGroup = group ? [...group.versions].sort((a, b) => order(a) - order(b)) : [];
+  const shown = inGroup.find((v) => versionSheet(v) === sheetTab) ?? inGroup[0] ?? null;
+  const sheetName = (id: string) =>
+    sheets.find((sh) => sh.id === id)?.name ?? (id === MAIN_SHEET ? "Document principal" : "Feuille supprimée");
+  const exists = (v: Version) => sheets.some((sh) => sh.id === versionSheet(v));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -74,19 +91,29 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore, readOn
   }, [onClose]);
 
   function saveNow() {
-    setMessage(onSaveNow() ? "Version enregistrée." : "Rien n'a changé depuis la dernière version.");
+    const saved = onSaveNow();
+    setMessage(
+      saved === 0
+        ? "Rien n'a changé depuis la dernière version."
+        : saved === 1
+          ? "Version enregistrée."
+          : `Version enregistrée pour ${saved} feuilles.`,
+    );
   }
 
-  async function restore(version: Version) {
+  async function restore(list: Version[]) {
+    const names = list.map((v) => `« ${sheetName(versionSheet(v))} »`).join(", ");
     const ok = await confirm({
-      title: "Restaurer cette version ?",
-      message: `Le document redevient comme le ${when(version.t)}. La version actuelle est enregistrée avant : tu pourras revenir en arrière.`,
+      title: list.length > 1 ? "Restaurer toutes ces feuilles ?" : "Restaurer cette feuille ?",
+      message: `${list.length > 1 ? "Les feuilles" : "La feuille"} ${names} ${list.length > 1 ? "redeviennent" : "redevient"} comme le ${when(list[0].t)}. L'état actuel est enregistré avant : tu pourras revenir en arrière.`,
       confirmLabel: "Restaurer",
     });
     if (!ok) return;
-    onRestore(version);
+    onRestore(list);
     onClose();
   }
+
+  const restorable = inGroup.filter(exists);
 
   return (
     <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-2 sm:p-6">
@@ -104,14 +131,14 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore, readOn
           <div className="flex items-center gap-2">
             {message && <span className="text-xs text-neutral-500">{message}</span>}
             {!readOnly && (
-            <button
-              type="button"
-              onClick={saveNow}
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium ring-1 ring-neutral-300 hover:bg-neutral-50"
-            >
-              <Save size={14} aria-hidden />
-              Enregistrer une version
-            </button>
+              <button
+                type="button"
+                onClick={saveNow}
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium ring-1 ring-neutral-300 hover:bg-neutral-50"
+              >
+                <Save size={14} aria-hidden />
+                Enregistrer une version
+              </button>
             )}
             <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-md p-1.5 hover:bg-neutral-100">
               <X size={17} aria-hidden />
@@ -119,51 +146,94 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore, readOn
           </div>
         </div>
 
-        {sorted.length === 0 ? (
+        {groups.length === 0 ? (
           <p className="p-6 text-sm text-neutral-500">
             Aucune version pour le moment. Une copie est faite automatiquement toutes les 10 minutes quand le document
-            change, ou tout de suite avec "Enregistrer une version".
+            change, ou tout de suite avec « Enregistrer une version ».
           </p>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col md:flex-row">
             <ul className="max-h-48 shrink-0 overflow-y-auto border-b border-neutral-200 md:max-h-none md:w-72 md:border-r md:border-b-0">
-              {sorted.map((v) => (
-                <li key={v.id}>
+              {groups.map((g) => (
+                <li key={g.key}>
                   <button
                     type="button"
-                    onClick={() => setSelectedId(v.id)}
+                    onClick={() => {
+                      setSelectedKey(g.key);
+                      setSheetTab(null);
+                    }}
                     className={`flex w-full flex-col items-start gap-0.5 border-b border-neutral-100 px-4 py-2.5 text-left ${
-                      selected?.id === v.id ? "bg-neutral-100" : "hover:bg-neutral-50"
+                      group?.key === g.key ? "bg-neutral-100" : "hover:bg-neutral-50"
                     }`}
                   >
-                    <span className="text-[13px] font-medium">{when(v.t)}</span>
-                    <span className="text-xs text-neutral-600">{describeReason(v.reason)}</span>
+                    <span className="text-[13px] font-medium">{when(g.t)}</span>
+                    <span className="text-xs text-neutral-600">{describeReason(g.reason)}</span>
+                    {sheets.length > 1 && (
+                      <span className="max-w-full truncate text-[11px] text-sky-800">
+                        {g.versions.map((v) => sheetName(versionSheet(v))).join(", ")}
+                      </span>
+                    )}
                     <span className="flex items-center gap-1.5 text-[11px] text-neutral-400">
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: v.color }} aria-hidden />
-                      {v.by}, {v.words} mot{v.words > 1 ? "s" : ""}
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: g.color }} aria-hidden />
+                      {g.by}
+                      {g.versions.length > 1 ? `, ${g.versions.length} feuilles` : `, ${g.versions[0].words} mot${g.versions[0].words > 1 ? "s" : ""}`}
                     </span>
                   </button>
                 </li>
               ))}
             </ul>
 
-            {selected && (
+            {group && shown && (
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-4 py-2">
-                  <span className="text-[13px] text-neutral-600">Aperçu du {when(selected.t)}</span>
+                {inGroup.length > 1 && (
+                  <div className="flex gap-1 overflow-x-auto border-b border-neutral-200 bg-neutral-50 px-3 pt-2" role="tablist" aria-label="Feuilles modifiées">
+                    {inGroup.map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={shown.id === v.id}
+                        onClick={() => setSheetTab(versionSheet(v))}
+                        className={`shrink-0 rounded-t-md px-3 py-1.5 text-xs ${
+                          shown.id === v.id ? "bg-white font-medium ring-1 ring-neutral-200" : "text-neutral-600 hover:bg-white/70"
+                        }`}
+                      >
+                        {sheetName(versionSheet(v))}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 px-4 py-2">
+                  <span className="truncate text-[13px] text-neutral-600">
+                    {sheets.length > 1 ? `${sheetName(versionSheet(shown))}, ` : ""}aperçu du {when(shown.t)}, {shown.words} mot{shown.words > 1 ? "s" : ""}
+                  </span>
                   {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => restore(selected)}
-                    className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-neutral-800"
-                  >
-                    <RotateCcw size={14} aria-hidden />
-                    Restaurer cette version
-                  </button>
+                    <div className="flex gap-2">
+                      {restorable.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => restore(restorable)}
+                          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium ring-1 ring-neutral-300 hover:bg-neutral-50"
+                        >
+                          <RotateCcw size={14} aria-hidden />
+                          Tout restaurer ({restorable.length} feuilles)
+                        </button>
+                      )}
+                      {exists(shown) && (
+                        <button
+                          type="button"
+                          onClick={() => restore([shown])}
+                          className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-neutral-800"
+                        >
+                          <RotateCcw size={14} aria-hidden />
+                          {inGroup.length > 1 ? "Restaurer cette feuille" : "Restaurer cette version"}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="flex-1 overflow-y-auto bg-neutral-100 p-3 sm:p-6">
-                  <Preview key={selected.id} version={selected} />
+                  <Preview key={shown.id} version={shown} />
                 </div>
               </div>
             )}

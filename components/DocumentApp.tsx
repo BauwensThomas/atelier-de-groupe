@@ -37,12 +37,21 @@ import {
 import { commentsKey } from "@/lib/editor/comments";
 import { CommentComposer, ThreadDialog } from "./Comments";
 import { uploadImage } from "@/lib/images";
+import { MAIN_SHEET, addSheet, deleteSheet, renameSheet, sheetField, useSheets, type Sheet } from "@/lib/sheets";
+import { yXmlFragmentToProsemirrorJSON } from "@tiptap/y-tiptap";
+import { SheetTabs } from "./SheetTabs";
+import { removeFile, uploadFile, useFiles, type ProjectFile } from "@/lib/files";
+import { FileViewer } from "./FileViewer";
 import { isRemote } from "@/lib/editor/shared";
 import {
   AUTO_INTERVAL_MS,
   RESTORE_META,
   isBigDeletion,
+  groupVersions,
   lastVersion,
+  newBatch,
+  restoreSheetVersion,
+  versionSheet,
   restoreVersion,
   saveVersion,
   useVersions,
@@ -72,6 +81,37 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   const room = useRoom();
   const provider = useMemo(() => getYjsProviderForRoom(room), [room]);
   const readOnly = project.role === "prof";
+
+  // Feuilles du projet ; celle qu'on regarde est retenue dans ce navigateur.
+  const sheets = useSheets(provider.getYDoc());
+  const sheetKey = `gp.sheet.${project.slug}`;
+  const [sheetChoice, setSheetChoice] = useState<string>(MAIN_SHEET);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(sheetKey);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved) setSheetChoice(saved);
+    } catch {
+      // stockage indisponible : feuille principale
+    }
+  }, [sheetKey]);
+  // Feuille supprimée entre-temps : retour à la feuille principale.
+  const sheet: Sheet = sheets.find((s) => s.id === sheetChoice) ?? sheets[0];
+  const sheetRef = useRef(sheet.id);
+  useEffect(() => {
+    sheetRef.current = sheet.id;
+  }, [sheet.id]);
+  const selectSheet = useCallback(
+    (id: string) => {
+      setSheetChoice(id);
+      try {
+        window.localStorage.setItem(sheetKey, id);
+      } catch {
+        // stockage indisponible
+      }
+    },
+    [sheetKey],
+  );
 
   // Une fois le document chargé, on garde l'éditeur affiché même en cas de coupure.
   const [loaded, setLoaded] = useState(() => provider.synced);
@@ -333,7 +373,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
         const now = Date.now();
         if (now - lastEmergencySave.current > 60_000) {
           lastEmergencySave.current = now;
-          saveVersion(provider.getYDoc(), transaction.before, who, "before-delete");
+          saveVersion(provider.getYDoc(), transaction.before, who, "before-delete", sheetRef.current);
         }
       }
       const items = describeTransaction(transaction);
@@ -348,7 +388,13 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
 
   // Versions : copie automatique toutes les 10 minutes si le document a changé.
   // Une seule personne s'en charge : celle qui a le plus petit numéro de connexion.
-  const versions = useVersions(provider.getYDoc());
+  const allVersions = useVersions(provider.getYDoc());
+  // Nombre d'enregistrements (plusieurs feuilles copiées ensemble comptent pour un).
+  const versionsCount = useMemo(() => groupVersions(allVersions).length, [allVersions]);
+  const sheetsRef = useRef(sheets);
+  useEffect(() => {
+    sheetsRef.current = sheets;
+  }, [sheets]);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const othersRef = useRef(others);
   useEffect(() => {
@@ -362,28 +408,65 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
       const leader = othersRef.current.every((o) => Number(o.key) > myConnection);
       if (!leader) return;
       const doc = provider.getYDoc();
-      const last = lastVersion(doc);
-      if (last && Date.now() - last.t < AUTO_INTERVAL_MS) return;
-      saveVersion(doc, editor.state.doc, who, "auto");
+      const batch = newBatch();
+      // Chaque feuille a sa copie automatique (lue directement dans le document partagé).
+      for (const s of sheetsRef.current) {
+        const last = lastVersion(doc, s.id);
+        if (last && Date.now() - last.t < AUTO_INTERVAL_MS) continue;
+        const fragment = doc.getXmlFragment(sheetField(s.id));
+        if (!fragment.length) continue;
+        try {
+          const content = editor.schema.nodeFromJSON(yXmlFragmentToProsemirrorJSON(fragment));
+          saveVersion(doc, content, who, "auto", s.id, batch);
+        } catch {
+          // feuille illisible : on passe
+        }
+      }
     };
     const timer = setInterval(tick, 60_000);
     return () => clearInterval(timer);
   }, [editor, identityRef, myConnection, provider, readOnly]);
 
+  // "Enregistrer une version" : une copie de toutes les feuilles qui ont changé, pas seulement celle affichée.
+  // Renvoie le nombre de feuilles copiées.
   const saveVersionNow = useCallback(() => {
     const who = identityRef.current;
-    if (!editor || !who || readOnly) return false;
-    const saved = saveVersion(provider.getYDoc(), editor.state.doc, who, "manual");
+    if (!editor || !who || readOnly) return 0;
+    const doc = provider.getYDoc();
+    const batch = newBatch();
+    let saved = 0;
+    for (const s of sheetsRef.current) {
+      try {
+        const content =
+          s.id === sheetRef.current
+            ? editor.state.doc
+            : editor.schema.nodeFromJSON(yXmlFragmentToProsemirrorJSON(doc.getXmlFragment(sheetField(s.id))));
+        if (s.id !== sheetRef.current && !content.content.size) continue;
+        if (saveVersion(doc, content, who, "manual", s.id, batch)) saved++;
+      } catch {
+        // feuille illisible : on passe
+      }
+    }
     if (saved) log("version-save");
     return saved;
   }, [editor, identityRef, provider, log, readOnly]);
 
+  // Restaure une ou plusieurs feuilles d'un enregistrement (la feuille affichée par l'éditeur, les autres
+  // directement dans le document partagé). Une copie de l'état actuel est faite avant.
   const restore = useCallback(
-    (version: Version) => {
+    (list: Version[]) => {
       const who = identityRef.current;
       if (!editor || !who || readOnly) return;
-      restoreVersion(provider.getYDoc(), editor, version, who);
-      log("version-restore", new Date(version.t).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }));
+      const doc = provider.getYDoc();
+      const batch = newBatch();
+      const alive = list.filter((v) => sheetsRef.current.some((s) => s.id === versionSheet(v)));
+      for (const version of alive) {
+        if (versionSheet(version) === sheetRef.current) restoreVersion(doc, editor, version, who, batch);
+        else restoreSheetVersion(doc, editor.schema, version, who, batch);
+      }
+      if (alive.length) {
+        log("version-restore", new Date(alive[0].t).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }));
+      }
     },
     [editor, identityRef, provider, log, readOnly],
   );
@@ -411,7 +494,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     };
   }, [client, project.slug]);
   const threads = useThreads(notes?.doc ?? null);
-  const [composer, setComposer] = useState<{ from: unknown; to: unknown; quote: string } | null>(null);
+  const [composer, setComposer] = useState<{ from: unknown; to: unknown; quote: string; sheet: string } | null>(null);
   const [openThread, setOpenThread] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const me = useMemo<Author | null>(
@@ -421,13 +504,14 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   // Les commentaires (et celui qui est ouvert) sont transmis à l'éditeur pour le surlignage.
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
-    editor.view.dispatch(editor.state.tr.setMeta(commentsKey, { threads, active: openThread ?? flash }));
-  }, [editor, threads, openThread, flash]);
+    const here = threads.filter((t) => t.sheet === sheet.id);
+    editor.view.dispatch(editor.state.tr.setMeta(commentsKey, { threads: here, active: openThread ?? flash }));
+  }, [editor, threads, openThread, flash, sheet.id]);
   const onComment = useMemo(() => {
     if (!notes || !editor) return undefined;
     return () => {
       const anchor = anchorSelection(editor.state);
-      if (anchor) setComposer(anchor);
+      if (anchor) setComposer({ ...anchor, sheet: sheetRef.current });
     };
   }, [notes, editor]);
   const thread = openThread ? (threads.find((t) => t.id === openThread) ?? null) : null;
@@ -480,6 +564,16 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     }
   }, [openThread, mentionIds, seen, seenKey]);
 
+  // Ouvre un commentaire ; s'il est sur une autre feuille, on y va d'abord.
+  const openComment = useCallback(
+    (id: string) => {
+      const t = threads.find((x) => x.id === id);
+      if (t && t.sheet !== sheetRef.current && sheets.some((s) => s.id === t.sheet)) selectSheet(t.sheet);
+      setOpenThread(id);
+    },
+    [threads, sheets, selectSheet],
+  );
+
   function goToThread(id: string) {
     const t = threads.find((x) => x.id === id);
     const range = editor && t ? resolveAnchor(editor.state, t) : null;
@@ -491,6 +585,72 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     setFlash(id);
     setTimeout(() => setFlash((f) => (f === id ? null : f)), 2500);
   }
+
+  // Fichiers du projet, ouverts à côté du document (côté retenu dans ce navigateur).
+  const files = useFiles(provider.getYDoc());
+  const [openFileId, setOpenFileId] = useState<string | null>(null);
+  // Le professeur ne voit pas les fichiers.
+  const openFile = readOnly ? null : (files.find((f) => f.id === openFileId) ?? null);
+  const [uploads, setUploads] = useState<Array<{ name: string; percent: number }>>([]);
+  const [fileSide, setFileSide] = useState<"left" | "right">("right");
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (window.localStorage.getItem("gp.fileSide") === "left") setFileSide("left");
+    } catch {
+      // stockage indisponible : à droite
+    }
+  }, []);
+  const swapFileSide = useCallback(() => {
+    setFileSide((side) => {
+      const next = side === "left" ? "right" : "left";
+      try {
+        window.localStorage.setItem("gp.fileSide", next);
+      } catch {
+        // stockage indisponible
+      }
+      return next;
+    });
+  }, []);
+
+  const onUploadFiles = useCallback(
+    async (list: File[]) => {
+      const who = identityRef.current;
+      if (!who || readOnly) return;
+      for (const file of list) {
+        setUploads((u) => [...u, { name: file.name, percent: 0 }]);
+        const result = await uploadFile(provider.getYDoc(), project.slug, file, who, (percent) =>
+          setUploads((u) => u.map((x) => (x.name === file.name ? { ...x, percent } : x))),
+        );
+        setUploads((u) => u.filter((x) => x.name !== file.name));
+        if ("error" in result) showNotice(result.error, 6000);
+        else log("file-add", result.name);
+      }
+    },
+    [identityRef, readOnly, provider, project.slug, showNotice, log],
+  );
+
+  const onDeleteFile = useCallback(
+    async (file: ProjectFile) => {
+      const ok = await confirm({
+        // Nom du fichier dans le message : un nom long ne casse pas le titre.
+        title: "Supprimer ce fichier ?",
+        message: `${file.name}
+
+Il sera supprimé pour tout le groupe.`,
+        confirmLabel: "Supprimer",
+        danger: true,
+      });
+      if (!ok) return;
+      if (!(await removeFile(provider.getYDoc(), project.slug, file))) {
+        showNotice("Suppression impossible. Réessaie.", 5000);
+        return;
+      }
+      log("file-delete", file.name);
+      setOpenFileId((id) => (id === file.id ? null : id));
+    },
+    [confirm, provider, project.slug, showNotice, log],
+  );
 
   const [exporting, setExporting] = useState(false);
   // Panneau de droite replié ou non (choix retenu dans ce navigateur).
@@ -524,7 +684,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
       await exportToDocx(
         editor.getJSON(),
         {
-          title: doc.getText("title").toString().trim(),
+          title: sheet.id === MAIN_SHEET ? doc.getText("title").toString().trim() : sheet.name,
           authors: doc.getText("authors").toString().trim(),
         },
         mode,
@@ -582,9 +742,45 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
 
       <div className="print-reset flex flex-col gap-4 p-2 sm:p-4 lg:flex-row lg:items-start">
         {/* overflow-clip (et non overflow-hidden) : garde les coins arrondis sans empêcher la barre d'outils de rester en haut */}
+        {/* Document, avec le fichier ouvert à côté (à gauche ou à droite). */}
+        <div className={`print-reset flex min-w-0 flex-1 flex-col gap-4 ${openFile ? "lg:flex-row lg:items-start" : ""}`}>
+        {openFile && (
+          // Accroché en haut de l'écran : le fichier reste visible pendant qu'on fait défiler le document.
+          <div className={`min-w-0 lg:sticky lg:top-4 lg:w-[45%] lg:shrink-0 lg:self-start ${fileSide === "left" ? "lg:order-first" : "lg:order-last"}`}>
+            <FileViewer file={openFile} onClose={() => setOpenFileId(null)} onSwap={swapFileSide} />
+          </div>
+        )}
         <main className="print-reset min-w-0 flex-1 overflow-clip rounded-xl bg-neutral-200/60 ring-1 ring-neutral-200">
           {loaded ? (
+            <>
+            <SheetTabs
+              sheets={sheets}
+              current={sheet.id}
+              editable={Boolean(identity) && !readOnly}
+              onSelect={selectSheet}
+              onAdd={() => {
+                const created = addSheet(provider.getYDoc(), `Feuille ${sheets.length + 1}`);
+                log("sheet-add", created.name);
+                selectSheet(created.id);
+              }}
+              onRename={(s, name) => renameSheet(provider.getYDoc(), s, name)}
+              onDelete={async (s) => {
+                const ok = await confirm({
+                  title: `Supprimer la feuille « ${s.name} » ?`,
+                  message: "La feuille disparaît pour tout le groupe. Son contenu reste gardé dans le projet par sécurité.",
+                  confirmLabel: "Supprimer",
+                  danger: true,
+                });
+                if (!ok) return;
+                deleteSheet(provider.getYDoc(), s);
+                log("sheet-delete", s.name);
+                selectSheet(MAIN_SHEET);
+              }}
+            />
             <Editor
+              key={sheet.id}
+              field={sheetField(sheet.id)}
+              showHeader={sheet.id === MAIN_SHEET}
               provider={provider}
               identity={identity}
               identityRef={identityRef}
@@ -595,14 +791,16 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
                 log(field);
               }}
               readOnly={readOnly}
-              onOpenThread={setOpenThread}
+              onOpenThread={openComment}
               onComment={onComment}
               onUploadImage={readOnly ? undefined : onUploadImage}
             />
+            </>
           ) : (
             <Loading text="Chargement du document…" />
           )}
         </main>
+        </div>
 
         {/* Panneau toujours visible pendant le défilement (avec sa propre barre s'il dépasse l'écran).
             Replié : colonne d'environ 1 cm (ordinateur seulement ; sur téléphone, le panneau reste complet). */}
@@ -642,7 +840,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
             onExport={() => setExportChoice("word")}
             onPrint={() => setExportChoice("print")}
             onOpenVersions={() => setVersionsOpen(true)}
-            versionsCount={versions.length}
+            versionsCount={versionsCount}
             onLeave={onLeave}
             onLogout={onLogout}
             project={project}
@@ -654,8 +852,15 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
             onOpenTasks={() => setTasksOpen(true)}
             threads={threads}
             unreadMentions={unreadMentions}
-            onOpenThread={setOpenThread}
+            onOpenThread={openComment}
+            sheets={sheets}
             readOnly={readOnly}
+            files={files}
+            uploads={uploads}
+            openFileId={openFileId}
+            onUploadFiles={onUploadFiles}
+            onOpenFile={(f) => setOpenFileId(f.id)}
+            onDeleteFile={onDeleteFile}
           />
           </div>
         </aside>
@@ -712,7 +917,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
       {unreadMentions.size > 0 && !thread && (
         <button
           type="button"
-          onClick={() => setOpenThread([...unreadMentions][0])}
+          onClick={() => openComment([...unreadMentions][0])}
           className="no-print fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white shadow-lg hover:bg-sky-800"
         >
           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs font-bold text-sky-800">@</span>
@@ -754,7 +959,8 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
 
       {versionsOpen && (
         <VersionsDialog
-          versions={versions}
+          versions={allVersions}
+          sheets={sheets}
           onClose={() => setVersionsOpen(false)}
           onSaveNow={saveVersionNow}
           onRestore={restore}

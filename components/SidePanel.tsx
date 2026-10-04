@@ -11,6 +11,9 @@ import { Outline } from "./Outline";
 import { TaskPanel, type TaskActions } from "./Tasks";
 import type { Task } from "@/lib/tasks";
 import type { Thread } from "@/lib/comments";
+import type { Sheet } from "@/lib/sheets";
+import type { ProjectFile } from "@/lib/files";
+import { FilesPanel } from "./FilesPanel";
 import { CommentsPanel } from "./Comments";
 import { TeacherLinkButton } from "./TeacherLink";
 
@@ -62,8 +65,15 @@ type Props = {
   threads: Thread[];
   unreadMentions: Set<string>;
   onOpenThread: (id: string) => void;
+  sheets: Sheet[];
   /** Professeur : lecture seule. */
   readOnly: boolean;
+  files: ProjectFile[];
+  uploads: Array<{ name: string; percent: number }>;
+  openFileId: string | null;
+  onUploadFiles: (files: File[]) => void;
+  onOpenFile: (file: ProjectFile) => void;
+  onDeleteFile: (file: ProjectFile) => void;
 };
 
 const SYNC_LABEL: Record<SyncState, { text: string; dot: string }> = {
@@ -228,7 +238,26 @@ export function SidePanel(props: Props) {
       </section>
       )}
 
-      <CommentsPanel editor={props.editor} threads={props.threads} unread={props.unreadMentions} onOpen={props.onOpenThread} />
+      {/* Les fichiers sont réservés aux élèves : le professeur ne les voit pas. */}
+      {!props.readOnly && (
+      <FilesPanel
+        files={props.files}
+        uploads={props.uploads}
+        openId={props.openFileId}
+        editable={Boolean(identity) && !props.readOnly}
+        onUpload={props.onUploadFiles}
+        onOpen={props.onOpenFile}
+        onDelete={props.onDeleteFile}
+      />
+      )}
+
+      <CommentsPanel
+        editor={props.editor}
+        threads={props.threads}
+        unread={props.unreadMentions}
+        onOpen={props.onOpenThread}
+        sheets={props.sheets}
+      />
 
       {!props.readOnly && <TaskPanel tasks={props.tasks} actions={props.taskActions} onOpenBoard={props.onOpenTasks} />}
 

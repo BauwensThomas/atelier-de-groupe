@@ -3,9 +3,10 @@ import * as Y from "yjs";
 import { del, list } from "@vercel/blob";
 import { getLiveblocks } from "./projects";
 
-// Nettoyage du stockage des images d'un projet.
+// Nettoyage du stockage d'un projet (images du texte et fichiers joints).
 // Une image retirée peut revenir (Ctrl+Z, restauration d'une version) : on n'efface que celles qui ne
-// sont plus utilisées nulle part (document et versions) et envoyées depuis plus de 7 jours.
+// sont plus utilisées nulle part (toutes les feuilles, même supprimées, et les versions) et envoyées depuis
+// plus de 7 jours. Un fichier joint est gardé tant qu'il est dans la liste des fichiers.
 
 const GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 const FILE = /\/api\/images\/[a-z0-9-]+\/([0-9a-f-]{36}\.(?:jpg|png|gif))/g;
@@ -25,14 +26,20 @@ async function projectBlobs(slug: string) {
   return blobs;
 }
 
-/** Noms des fichiers d'images encore utilisés par le document ou ses versions. */
+/** Fichiers encore utilisés : images des feuilles et des versions ("<id>.png"), fichiers joints ("files/<id>.pdf"). */
 async function usedFiles(slug: string): Promise<Set<string>> {
   const update = await getLiveblocks().getYjsDocumentAsBinaryUpdate(slug);
   const doc = new Y.Doc();
   Y.applyUpdate(doc, new Uint8Array(update));
-  const text = doc.getXmlFragment("default").toString() + JSON.stringify(doc.getArray("versions").toJSON());
+  const sheets = ["default", ...[...doc.getMap("sheets").keys()].filter((id) => id !== "main").map((id) => `sheet-${id}`)];
+  const text = sheets.map((name) => doc.getXmlFragment(name).toString()).join("") + JSON.stringify(doc.getArray("versions").toJSON());
+  const used = new Set([...text.matchAll(FILE)].map((m) => m[1]));
+  doc.getMap("files").forEach((value) => {
+    const path = (value as { path?: unknown } | null)?.path;
+    if (typeof path === "string" && path.startsWith(`${slug}/`)) used.add(path.slice(slug.length + 1));
+  });
   doc.destroy();
-  return new Set([...text.matchAll(FILE)].map((m) => m[1]));
+  return used;
 }
 
 /** Efface les images inutilisées du projet. Renvoie le nombre d'images effacées. */

@@ -28,7 +28,11 @@ export type ActivityType =
   | "task-add"
   | "task-done"
   | "comment"
-  | "image";
+  | "image"
+  | "sheet-add"
+  | "sheet-delete"
+  | "file-add"
+  | "file-delete";
 
 export type Activity = {
   t: number;
@@ -233,6 +237,14 @@ export function describeActivity(a: Activity): string {
       return "a enregistré une version";
     case "version-restore":
       return a.detail ? `a restauré la version de ${a.detail}` : "a restauré une version";
+    case "file-add":
+      return `a ajouté le fichier « ${a.detail ?? ""} »`;
+    case "file-delete":
+      return `a supprimé le fichier « ${a.detail ?? ""} »`;
+    case "sheet-add":
+      return `a créé la feuille « ${a.detail ?? ""} »`;
+    case "sheet-delete":
+      return `a supprimé la feuille « ${a.detail ?? ""} »`;
     case "image":
       return "a ajouté une image";
     case "comment":

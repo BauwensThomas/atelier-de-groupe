@@ -21,6 +21,8 @@ export type Thread = Message & {
   quote: string;
   resolved: { name: string; t: number } | null;
   replies: Message[];
+  /** Feuille du passage commenté. */
+  sheet: string;
 };
 
 export function notesRoomId(slug: string): string {
@@ -73,6 +75,7 @@ export function readThreads(doc: Y.Doc): Thread[] {
       quote: str(v.quote),
       resolved: resolved && typeof resolved.t === "number" ? { name: str(resolved.name), t: resolved.t } : null,
       replies: (replies.get(id) ?? []).sort((a, b) => a.t - b.t),
+      sheet: str(v.sheet) || "main",
     });
   });
   return out.sort((a, b) => a.t - b.t);
@@ -164,7 +167,7 @@ function clean(text: string): string {
 export function addThread(
   doc: Y.Doc,
   author: Author,
-  anchor: { from: unknown; to: unknown; quote: string },
+  anchor: { from: unknown; to: unknown; quote: string; sheet: string },
   text: string,
   names: string[] = [],
 ): string | null {
