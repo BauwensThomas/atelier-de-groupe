@@ -60,6 +60,7 @@ type Props = {
   taskActions: TaskActions;
   onOpenTasks: () => void;
   threads: Thread[];
+  unreadMentions: Set<string>;
   onOpenThread: (id: string) => void;
   /** Professeur : lecture seule. */
   readOnly: boolean;
@@ -227,7 +228,7 @@ export function SidePanel(props: Props) {
       </section>
       )}
 
-      <CommentsPanel editor={props.editor} threads={props.threads} onOpen={props.onOpenThread} />
+      <CommentsPanel editor={props.editor} threads={props.threads} unread={props.unreadMentions} onOpen={props.onOpenThread} />
 
       {!props.readOnly && <TaskPanel tasks={props.tasks} actions={props.taskActions} onOpenBoard={props.onOpenTasks} />}
 

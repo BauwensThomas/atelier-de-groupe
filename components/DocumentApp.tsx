@@ -27,6 +27,7 @@ import {
   addThread,
   anchorSelection,
   deleteThread,
+  mentions,
   notesRoomId,
   resolveAnchor,
   setResolved,
@@ -207,6 +208,27 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     }),
     [identity, readOnly, taskPeople, provider, log],
   );
+
+  // Une fois par jour (par navigateur d'élève) : le serveur efface les images qui ne servent plus.
+  useEffect(() => {
+    if (!loaded || readOnly) return;
+    const key = `gp.imgClean.${project.slug}`;
+    try {
+      const last = Number(window.localStorage.getItem(key) ?? 0);
+      if (Date.now() - last < 24 * 60 * 60 * 1000) return;
+      window.localStorage.setItem(key, String(Date.now()));
+    } catch {
+      return;
+    }
+    const timer = setTimeout(() => {
+      fetch("/api/projects/clean-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: project.slug }),
+      }).catch(() => null);
+    }, 30_000);
+    return () => clearTimeout(timer);
+  }, [loaded, readOnly, project.slug]);
 
   // Inscription dans la liste des membres à l'ouverture.
   useEffect(() => {
@@ -410,6 +432,54 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   }, [notes, editor]);
   const thread = openThread ? (threads.find((t) => t.id === openThread) ?? null) : null;
 
+  // Mentions @prénom : prénoms proposés (élèves, et professeurs qui ont écrit une note), sauf le sien.
+  const mentionNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const p of people) if (p.name && !p.prof) names.add(p.name);
+    for (const t of threads) if (t.prof && t.name) names.add(t.name);
+    if (identity?.name) names.delete(identity.name);
+    return [...names].sort((a, b) => a.localeCompare(b, "fr"));
+  }, [people, threads, identity]);
+
+  // Messages où l'on est cité, et ceux déjà vus (retenus dans ce navigateur).
+  const seenKey = `gp.mentionsSeen.${project.slug}${readOnly ? ".prof" : ""}`;
+  const [seen, setSeen] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(window.localStorage.getItem(seenKey) ?? "[]");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (Array.isArray(raw)) setSeen(new Set(raw.filter((x) => typeof x === "string")));
+    } catch {
+      // stockage indisponible : les rappels valent pour cette page
+    }
+  }, [seenKey]);
+  const mentionIds = useMemo(() => {
+    const byThread = new Map<string, string[]>();
+    if (!identity?.name || !myId) return byThread;
+    for (const t of threads) {
+      const ids = [t, ...t.replies].filter((m) => m.uid !== myId && mentions(m, identity.name)).map((m) => m.id);
+      if (ids.length) byThread.set(t.id, ids);
+    }
+    return byThread;
+  }, [threads, identity, myId]);
+  const unreadMentions = useMemo(
+    () => new Set([...mentionIds].filter(([, ids]) => ids.some((id) => !seen.has(id))).map(([threadId]) => threadId)),
+    [mentionIds, seen],
+  );
+  // Ouvrir le commentaire suffit pour que le rappel disparaisse.
+  useEffect(() => {
+    const ids = openThread ? mentionIds.get(openThread) : undefined;
+    if (!ids || ids.every((id) => seen.has(id))) return;
+    const next = new Set([...seen, ...ids]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeen(next);
+    try {
+      window.localStorage.setItem(seenKey, JSON.stringify([...next].slice(-300)));
+    } catch {
+      // stockage indisponible
+    }
+  }, [openThread, mentionIds, seen, seenKey]);
+
   function goToThread(id: string) {
     const t = threads.find((x) => x.id === id);
     const range = editor && t ? resolveAnchor(editor.state, t) : null;
@@ -583,6 +653,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
             taskActions={taskActions}
             onOpenTasks={() => setTasksOpen(true)}
             threads={threads}
+            unreadMentions={unreadMentions}
             onOpenThread={setOpenThread}
             readOnly={readOnly}
           />
@@ -605,9 +676,10 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
         <CommentComposer
           quote={composer.quote}
           prof={readOnly}
+          names={mentionNames}
           onClose={() => setComposer(null)}
           onSubmit={(text) => {
-            const id = addThread(notes.doc, me, composer, text);
+            const id = addThread(notes.doc, me, composer, text, mentionNames);
             if (id) log("comment");
           }}
         />
@@ -617,9 +689,10 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
         <ThreadDialog
           thread={thread}
           me={me}
+          names={mentionNames}
           missing={!editor || !resolveAnchor(editor.state, thread)}
           onClose={() => setOpenThread(null)}
-          onReply={(text) => addReply(notes.doc, me, thread.id, text)}
+          onReply={(text) => addReply(notes.doc, me, thread.id, text, mentionNames)}
           onResolve={(resolved) => setResolved(notes.doc, thread, resolved ? me.name : null)}
           onGoTo={() => goToThread(thread.id)}
           onDelete={async () => {
@@ -634,6 +707,20 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
             setOpenThread(null);
           }}
         />
+      )}
+
+      {unreadMentions.size > 0 && !thread && (
+        <button
+          type="button"
+          onClick={() => setOpenThread([...unreadMentions][0])}
+          className="no-print fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white shadow-lg hover:bg-sky-800"
+        >
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs font-bold text-sky-800">@</span>
+          {unreadMentions.size === 1
+            ? "Tu as été cité dans un commentaire"
+            : `Tu as été cité dans ${unreadMentions.size} commentaires`}
+          <span className="underline">Voir</span>
+        </button>
       )}
 
       {notice && (

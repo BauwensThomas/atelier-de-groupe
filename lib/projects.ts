@@ -181,6 +181,9 @@ export async function approveProject(slug: string): Promise<void> {
 
 export async function refuseProject(slug: string): Promise<void> {
   await getLiveblocks().deleteRoom(slug);
+  // Images du projet (import dynamique : évite une dépendance circulaire).
+  const { deleteAllImages } = await import("./image-cleanup");
+  await deleteAllImages(slug).catch(() => {});
   // Salon des commentaires (créé seulement si quelqu'un a ouvert le projet).
   await getLiveblocks().deleteRoom(`${slug}--notes`).catch(() => {});
 }

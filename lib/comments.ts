@@ -13,7 +13,8 @@ import { absolutePositionToRelativePosition, relativePositionToAbsolutePosition 
 export const COMMENT_MAX = 1000;
 
 export type Author = { uid: string; name: string; color: string; prof: boolean };
-export type Message = Author & { id: string; text: string; t: number };
+/** mentions : prénoms cités avec @ dans le message. */
+export type Message = Author & { id: string; text: string; t: number; mentions: string[] };
 export type Thread = Message & {
   from: unknown;
   to: unknown;
@@ -47,6 +48,7 @@ function toMessage(id: string, v: Record<string, unknown>): Message {
     prof: v.prof === true,
     text: str(v.text),
     t: typeof v.t === "number" ? v.t : 0,
+    mentions: Array.isArray(v.mentions) ? v.mentions.filter((m): m is string => typeof m === "string").slice(0, 20) : [],
   };
 }
 
@@ -133,22 +135,50 @@ export function resolveAnchor(state: EditorState, thread: Pick<Thread, "from" | 
   }
 }
 
+function fold(text: string): string {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/** Prénoms cités avec @ dans le texte (parmi les prénoms connus). */
+export function findMentions(text: string, names: string[]): string[] {
+  const folded = fold(text);
+  // "@Max" ne doit pas être trouvé dans "@Maxime" : le prénom doit s'arrêter là.
+  return names.filter((n) => {
+    const needle = "@" + fold(n);
+    for (let i = folded.indexOf(needle); n && i !== -1; i = folded.indexOf(needle, i + 1)) {
+      if (!/[a-z0-9]/.test(folded[i + needle.length] ?? "")) return true;
+    }
+    return false;
+  });
+}
+
+/** Vrai si ce prénom est cité dans le message. */
+export function mentions(message: Message, name: string): boolean {
+  return message.mentions.some((m) => fold(m) === fold(name));
+}
+
 function clean(text: string): string {
   return text.trim().slice(0, COMMENT_MAX);
 }
 
-export function addThread(doc: Y.Doc, author: Author, anchor: { from: unknown; to: unknown; quote: string }, text: string): string | null {
+export function addThread(
+  doc: Y.Doc,
+  author: Author,
+  anchor: { from: unknown; to: unknown; quote: string },
+  text: string,
+  names: string[] = [],
+): string | null {
   const body = clean(text);
   if (!body) return null;
   const id = crypto.randomUUID();
-  threadsMap(doc).set(id, { ...author, ...anchor, text: body, t: Date.now(), resolved: null });
+  threadsMap(doc).set(id, { ...author, ...anchor, text: body, t: Date.now(), resolved: null, mentions: findMentions(body, names) });
   return id;
 }
 
-export function addReply(doc: Y.Doc, author: Author, thread: string, text: string): void {
+export function addReply(doc: Y.Doc, author: Author, thread: string, text: string, names: string[] = []): void {
   const body = clean(text);
   if (!body) return;
-  repliesArray(doc).push([{ ...author, id: crypto.randomUUID(), thread, text: body, t: Date.now() }]);
+  repliesArray(doc).push([{ ...author, id: crypto.randomUUID(), thread, text: body, t: Date.now(), mentions: findMentions(body, names) }]);
 }
 
 export function setResolved(doc: Y.Doc, thread: Thread, by: string | null): void {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { Check, MessageSquare, RotateCcw, ScanText, Trash2, X } from "lucide-react";
 import { COMMENT_MAX, resolveAnchor, type Author, type Message, type Thread } from "@/lib/comments";
@@ -50,25 +50,87 @@ function Quote({ text, missing }: { text: string; missing?: boolean }) {
   );
 }
 
-function Writer({ placeholder, submit, onSubmit, autoFocus }: { placeholder: string; submit: string; onSubmit: (text: string) => void; autoFocus?: boolean }) {
+function fold(text: string): string {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/** "@prénom" en cours de frappe juste avant le curseur, ou null. */
+function mentionQuery(text: string, caret: number): { start: number; query: string } | null {
+  const m = text.slice(0, caret).match(/(^|\s)@([^@\n]{0,30})$/);
+  return m ? { start: caret - m[2].length - 1, query: m[2] } : null;
+}
+
+type WriterProps = { placeholder: string; submit: string; names: string[]; onSubmit: (text: string) => void; autoFocus?: boolean };
+
+// Zone de saisie : taper @ propose les prénoms du groupe (flèches, puis Entrée ou Tab pour choisir).
+function Writer({ placeholder, submit, names, onSubmit, autoFocus }: WriterProps) {
   const [text, setText] = useState("");
+  const [caret, setCaret] = useState(0);
+  const [index, setIndex] = useState(0);
+  const area = useRef<HTMLTextAreaElement>(null);
+
+  const mention = mentionQuery(text, caret);
+  const suggestions = mention
+    ? names.filter((n) => fold(n).startsWith(fold(mention.query)) && fold(n) !== fold(mention.query)).slice(0, 5)
+    : [];
+  const current = Math.min(index, Math.max(suggestions.length - 1, 0));
+
   const send = () => {
     if (!text.trim()) return;
     onSubmit(text);
     setText("");
   };
+
+  function choose(name: string) {
+    if (!mention) return;
+    const next = `${text.slice(0, mention.start)}@${name} ${text.slice(caret)}`;
+    const pos = mention.start + name.length + 2;
+    setText(next);
+    setCaret(pos);
+    setIndex(0);
+    requestAnimationFrame(() => {
+      area.current?.focus();
+      area.current?.setSelectionRange(pos, pos);
+    });
+  }
+
   return (
     <form
-      className="flex flex-col gap-2"
+      className="relative flex flex-col gap-2"
       onSubmit={(e) => {
         e.preventDefault();
         send();
       }}
     >
       <textarea
+        ref={area}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          setCaret(e.target.selectionStart);
+          setIndex(0);
+        }}
+        onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
         onKeyDown={(e) => {
+          if (suggestions.length) {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              setIndex((current + (e.key === "ArrowDown" ? 1 : suggestions.length - 1)) % suggestions.length);
+              return;
+            }
+            if ((e.key === "Enter" && !e.ctrlKey && !e.metaKey) || e.key === "Tab") {
+              e.preventDefault();
+              choose(suggestions[current]);
+              return;
+            }
+            if (e.key === "Escape") {
+              // Ferme seulement la liste, pas la fenêtre.
+              e.preventDefault();
+              e.stopPropagation();
+              setCaret(-1);
+              return;
+            }
+          }
           // Ctrl+Entrée envoie.
           if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
@@ -78,10 +140,28 @@ function Writer({ placeholder, submit, onSubmit, autoFocus }: { placeholder: str
         maxLength={COMMENT_MAX}
         rows={3}
         autoFocus={autoFocus}
-        placeholder={placeholder}
+        placeholder={names.length ? `${placeholder} (@ pour citer quelqu'un)` : placeholder}
         aria-label={placeholder}
         className="w-full resize-y rounded-md px-2 py-1.5 text-sm ring-1 ring-neutral-300 outline-none focus:ring-2 focus:ring-neutral-900"
       />
+      {suggestions.length > 0 && (
+        <ul role="listbox" aria-label="Personnes à citer" className="flex flex-col rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-neutral-200">
+          {suggestions.map((n, i) => (
+            <li key={n} role="option" aria-selected={i === current}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  choose(n);
+                }}
+                className={`w-full px-3 py-1 text-left ${i === current ? "bg-neutral-100 font-medium" : "hover:bg-neutral-50"}`}
+              >
+                @{n}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <button
         type="submit"
         disabled={!text.trim()}
@@ -93,13 +173,26 @@ function Writer({ placeholder, submit, onSubmit, autoFocus }: { placeholder: str
   );
 }
 
-export function CommentComposer({ quote, prof, onSubmit, onClose }: { quote: string; prof: boolean; onSubmit: (text: string) => void; onClose: () => void }) {
+export function CommentComposer({
+  quote,
+  prof,
+  names,
+  onSubmit,
+  onClose,
+}: {
+  quote: string;
+  prof: boolean;
+  names: string[];
+  onSubmit: (text: string) => void;
+  onClose: () => void;
+}) {
   return (
     <Modal title={prof ? "Note du professeur" : "Nouveau commentaire"} onClose={onClose}>
       <div className="flex flex-col gap-3 p-4">
         <Quote text={quote} />
         <Writer
           autoFocus
+          names={names}
           placeholder={prof ? "Par exemple : à reformuler, à corriger…" : "Ton commentaire"}
           submit={prof ? "Ajouter la note" : "Commenter"}
           onSubmit={(text) => {
@@ -109,6 +202,26 @@ export function CommentComposer({ quote, prof, onSubmit, onClose }: { quote: str
         />
       </div>
     </Modal>
+  );
+}
+
+/** Texte du message, avec les @prénom cités en gras. */
+function MessageText({ m }: { m: Message }) {
+  if (!m.mentions.length) return <>{m.text}</>;
+  const escaped = m.mentions.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).sort((a, b) => b.length - a.length);
+  const parts = m.text.split(new RegExp(`(@(?:${escaped.join("|")}))`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <strong key={i} className="rounded bg-sky-50 px-0.5 font-semibold text-sky-800">
+            {part}
+          </strong>
+        ) : (
+          part
+        ),
+      )}
+    </>
   );
 }
 
@@ -124,7 +237,9 @@ function MessageView({ m, children }: { m: Message; children?: ReactNode }) {
         <span className="text-[11px] text-neutral-400">{when(m.t)}</span>
         {children}
       </div>
-      <p className="text-sm whitespace-pre-wrap wrap-break-word">{m.text}</p>
+      <p className="text-sm whitespace-pre-wrap wrap-break-word">
+        <MessageText m={m} />
+      </p>
     </div>
   );
 }
@@ -132,6 +247,7 @@ function MessageView({ m, children }: { m: Message; children?: ReactNode }) {
 type ThreadProps = {
   thread: Thread;
   me: Author;
+  names: string[];
   missing: boolean;
   onReply: (text: string) => void;
   onResolve: (resolved: boolean) => void;
@@ -140,7 +256,7 @@ type ThreadProps = {
   onClose: () => void;
 };
 
-export function ThreadDialog({ thread, me, missing, onReply, onResolve, onDelete, onGoTo, onClose }: ThreadProps) {
+export function ThreadDialog({ thread, me, names, missing, onReply, onResolve, onDelete, onGoTo, onClose }: ThreadProps) {
   const mine = thread.uid === me.uid || (thread.name === me.name && thread.prof === me.prof);
   const doneLabel = thread.prof ? "Corrigé" : "Résolu";
   return (
@@ -159,7 +275,7 @@ export function ThreadDialog({ thread, me, missing, onReply, onResolve, onDelete
             {doneLabel} par {thread.resolved.name}, {when(thread.resolved.t)}
           </p>
         )}
-        <Writer placeholder="Répondre" submit="Répondre" onSubmit={onReply} />
+        <Writer placeholder="Répondre" submit="Répondre" names={names} onSubmit={onReply} />
       </div>
       <div className="flex flex-wrap items-center gap-1.5 border-t border-neutral-200 px-4 py-2.5">
         <button
@@ -204,7 +320,18 @@ function useOrder(editor: Editor | null, threads: Thread[]): Record<string, numb
   );
 }
 
-export function CommentsPanel({ editor, threads, onOpen }: { editor: Editor | null; threads: Thread[]; onOpen: (id: string) => void }) {
+export function CommentsPanel({
+  editor,
+  threads,
+  unread,
+  onOpen,
+}: {
+  editor: Editor | null;
+  threads: Thread[];
+  /** Commentaires où l'on est cité, pas encore ouverts. */
+  unread: Set<string>;
+  onOpen: (id: string) => void;
+}) {
   const [showResolved, setShowResolved] = useState(false);
   const order = useOrder(editor, threads);
   const open = threads.filter((t) => !t.resolved);
@@ -214,7 +341,12 @@ export function CommentsPanel({ editor, threads, onOpen }: { editor: Editor | nu
     .sort((a, b) => Number(b.prof) - Number(a.prof) || (order[a.id] ?? 0) - (order[b.id] ?? 0));
 
   return (
-    <FoldSection id="comments" title="Commentaires" count={open.length}>
+    <FoldSection
+      id="comments"
+      title="Commentaires"
+      count={open.length}
+      alert={unread.size ? `${unread.size} pour toi` : undefined}
+    >
       <div className="flex flex-col gap-2">
         {shown.length ? (
           <ul className="flex max-h-80 flex-col gap-1 overflow-y-auto">
@@ -232,6 +364,9 @@ export function CommentsPanel({ editor, threads, onOpen }: { editor: Editor | nu
                     <span className="font-medium">{t.name}</span>
                     {t.prof && <ProfTag />}
                     {t.resolved && <Check size={12} className="text-green-700" aria-label="Résolu" />}
+                    {unread.has(t.id) && (
+                      <span className="rounded bg-sky-600 px-1 text-[10px] font-semibold text-white">Cité</span>
+                    )}
                     {t.replies.length > 0 && (
                       <span className="ml-auto text-[11px] text-neutral-400">
                         {t.replies.length} réponse{t.replies.length > 1 ? "s" : ""}

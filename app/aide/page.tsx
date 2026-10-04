@@ -189,6 +189,11 @@ export default function HelpPage() {
               répondre ou marquer « résolu ».
             </li>
             <li>
+              Dans un commentaire, tape <strong>@</strong> puis choisis un prénom pour <strong>citer quelqu&apos;un</strong>.
+              La personne voit en bas de son écran « Tu as été cité dans un commentaire », jusqu&apos;à ce qu&apos;elle
+              l&apos;ouvre.
+            </li>
+            <li>
               <strong>Images</strong> : bouton image de la barre d&apos;outils, ou colle (Ctrl+V) ou glisse une image dans
               la page. Clique sur une image pour choisir sa taille (petite, moyenne, grande, pleine largeur). Les images restent
               privées au groupe.

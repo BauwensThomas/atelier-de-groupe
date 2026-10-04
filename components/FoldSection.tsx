@@ -5,7 +5,9 @@ import { ChevronRight } from "lucide-react";
 
 // Carte du panneau qu'on ouvre ou ferme d'un clic sur son titre. Fermée par défaut ;
 // le choix est retenu sur cet ordinateur.
-export function FoldSection({ id, title, count, children }: { id: string; title: string; count?: number; children: ReactNode }) {
+type Props = { id: string; title: string; count?: number; /** Petit signal visible même fermé (ex. : "2 pour toi"). */ alert?: string; children: ReactNode };
+
+export function FoldSection({ id, title, count, alert, children }: Props) {
   const storageKey = `gp.fold.${id}`;
   const [open, setOpen] = useState(false);
 
@@ -40,6 +42,9 @@ export function FoldSection({ id, title, count, children }: { id: string; title:
           <ChevronRight size={14} className={`shrink-0 transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
           {title}
           {count !== undefined && count > 0 && <span className="font-normal normal-case text-neutral-400">({count})</span>}
+          {alert && (
+            <span className="ml-auto rounded-full bg-sky-600 px-1.5 py-px text-[10px] font-semibold tracking-normal text-white normal-case">{alert}</span>
+          )}
         </button>
       </h2>
       {open && <div className="-mt-1 px-3 pb-3">{children}</div>}
