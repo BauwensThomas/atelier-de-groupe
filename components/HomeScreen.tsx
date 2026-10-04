@@ -300,7 +300,19 @@ function RequestForm({ onSent }: { onSent: (name: string) => void }) {
         <Field label="Nom" htmlFor="req-last">
           <input id="req-last" value={form.lastName} onChange={set("lastName")} maxLength={40} autoComplete="family-name" className={inputClass} />
         </Field>
-        <Field label="E-mail" htmlFor="req-email">
+        <Field
+          label="E-mail personnel"
+          htmlFor="req-email"
+          hint={
+            /@([a-z0-9-]+\.)*ephec\.be\s*$/i.test(form.email) ? (
+              <span className="text-amber-700">
+                Les adresses de l&apos;école bloquent nos e-mails : utilise plutôt ton adresse personnelle.
+              </span>
+            ) : (
+              <span className="text-neutral-900">Gmail, Outlook.com… (pas @ de l&apos;école)</span>
+            )
+          }
+        >
           <input id="req-email" type="email" value={form.email} onChange={set("email")} maxLength={120} autoComplete="email" className={inputClass} />
         </Field>
         <Field label="École" htmlFor="req-school">

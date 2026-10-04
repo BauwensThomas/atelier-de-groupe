@@ -57,8 +57,9 @@ export default function HelpPage() {
               Sur l&apos;accueil, clique sur <strong>« Demander un projet »</strong>.
             </li>
             <li>
-              Remplis le formulaire : nom du projet, prénom, nom, e-mail, école, classe, cours, et un{" "}
-              <strong>mot de passe</strong> (deux fois).
+              Remplis le formulaire : nom du projet, prénom, nom, <strong>e-mail personnel</strong>, école, classe,
+              cours, et un <strong>mot de passe</strong> (deux fois). Utilise ton adresse personnelle (Gmail,
+              Outlook.com…) : les adresses de l&apos;école bloquent nos e-mails.
             </li>
             <li>
               Coche <strong>« Vérifiez que vous êtes humain »</strong>, puis clique sur{" "}
@@ -165,8 +166,9 @@ export default function HelpPage() {
           <h2 className="mb-3 text-base font-semibold text-white">Bon à savoir</h2>
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
-              <strong className="text-white">Pas d&apos;e-mail ?</strong> Regarde dans le courrier indésirable (et
-              l&apos;onglet « Autres » dans Outlook), puis ajoute{" "}
+              <strong className="text-white">Pas d&apos;e-mail ?</strong> Vérifie que tu as donné ton adresse
+              personnelle (pas celle de l&apos;école). Regarde aussi dans le courrier indésirable (et l&apos;onglet
+              « Autres » dans Outlook), puis ajoute{" "}
               <strong className="text-white">noreply@atelier.belgacai.com</strong> à tes expéditeurs approuvés pour
               recevoir les prochains.
             </li>
