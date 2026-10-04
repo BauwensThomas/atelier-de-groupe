@@ -24,8 +24,8 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Sentry (suivi des erreurs) : les rapports passent par /monitoring sur notre site (pas bloqués par les
-// bloqueurs de pub). Au déploiement, les correspondances avec le code source sont envoyées à Sentry puis effacées
+// Sentry (suivi des erreurs) : les rapports passent par notre site, sous un nom tiré au hasard à chaque déploiement
+// (les bloqueurs de pub connaissent "/monitoring" et le bloquaient). proxy.ts ne surveille pas ce chemin. Au déploiement, les correspondances avec le code source sont envoyées à Sentry puis effacées
 // (jamais publiées sur le site). Le jeton SENTRY_AUTH_TOKEN reste côté serveur (Vercel et .env.local).
 export default withSentryConfig(nextConfig, {
   org: "atelier-de-groupe",
@@ -33,7 +33,7 @@ export default withSentryConfig(nextConfig, {
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
   telemetry: false,
-  tunnelRoute: "/monitoring",
+  tunnelRoute: true,
   widenClientFileUpload: true,
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN, deleteSourcemapsAfterUpload: true },
 });
