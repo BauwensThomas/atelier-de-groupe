@@ -471,3 +471,25 @@ body {
   height: 100vh;
   border-radius: 0;
 }
+
+/* Zoom de la page : sans effet à l'impression */
+@media print {
+  .zoom-box {
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .zoom-inner {
+    width: auto !important;
+    transform: none !important;
+  }
+}
+
+/* Zone du document : sa barre horizontale est remplacée par une barre toujours visible en bas de l'écran */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

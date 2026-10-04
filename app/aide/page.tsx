@@ -103,6 +103,10 @@ export default function HelpPage() {
             </li>
             <li>La barre d&apos;outils permet de faire des titres, du gras, de l&apos;italique, des listes et des tableaux.</li>
             <li>
+              Les boutons <strong>−</strong> et <strong>+</strong>, au bout de la barre d&apos;outils, zooment la page. Clique sur
+              le pourcentage pour revenir à 100 %.
+            </li>
+            <li>
               <strong>« Rechercher »</strong> (ou Ctrl+F) trouve un mot dans tout le document. Entrée passe au résultat
               suivant.
             </li>

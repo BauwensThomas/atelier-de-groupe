@@ -372,7 +372,7 @@ function MicrosoftView({ file }: { file: ProjectFile }) {
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const observer = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
+    const observer = new ResizeObserver(() => setSize({ w: Math.floor(el.clientWidth), h: Math.floor(el.clientHeight) }));
     observer.observe(el);
     return () => observer.disconnect();
   }, [src]);
@@ -396,12 +396,14 @@ function MicrosoftView({ file }: { file: ProjectFile }) {
           Ajuster
         </button>
       </div>
-      <div ref={box} className="min-h-0 flex-1 overflow-auto">
+      {/* À 100 % : le cadre remplit exactement la place, sans barre de défilement (sinon, sur un écran agrandi
+          par Windows, la barre apparaît et disparaît sans arrêt et l'image vibre). */}
+      <div ref={box} className={`min-h-0 flex-1 ${zoom === 1 ? "overflow-hidden" : "overflow-auto"}`}>
         <iframe
           src={src}
           title={file.name}
           className="block border-0 bg-white"
-          style={size.w ? { width: size.w * zoom, height: size.h * zoom } : { width: "100%", height: "100%" }}
+          style={zoom !== 1 && size.w ? { width: Math.floor(size.w * zoom), height: Math.floor(size.h * zoom) } : { width: "100%", height: "100%" }}
         />
       </div>
     </div>

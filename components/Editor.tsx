@@ -19,6 +19,7 @@ import { Comments } from "@/lib/editor/comments";
 import { ReadOnlyGuard } from "@/lib/editor/read-only";
 import { DocImage } from "@/lib/editor/image";
 import { DocHeader } from "./DocHeader";
+import { ZoomBox } from "./ZoomBox";
 import { Toolbar } from "./Toolbar";
 
 type Props = {
@@ -50,6 +51,49 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
   const onOpenThreadRef = useRef(onOpenThread);
   const uploadRef = useRef(onUploadImage);
   const [tip, setTip] = useState<Tip>(null);
+  // Zoom de la page (retenu dans ce navigateur).
+  const [zoom, setZoom] = useState(1);
+  useEffect(() => {
+    try {
+      const saved = Number(window.localStorage.getItem("gp.docZoom"));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved >= 0.5 && saved <= 2) setZoom(saved);
+    } catch {
+      // stockage indisponible : 100 %
+    }
+  }, []);
+  // Page zoomée plus large que la zone : barre de défilement horizontale toujours visible en bas de l'écran
+  // (celle du document lui-même est cachée, elle n'apparaîtrait qu'à la fin de la feuille).
+  const area = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  const [overflow, setOverflow] = useState({ scroll: 0, client: 0 });
+  useEffect(() => {
+    const el = area.current;
+    if (!el) return;
+    const update = () => setOverflow({ scroll: el.scrollWidth, client: el.clientWidth });
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    update();
+    return () => observer.disconnect();
+  }, [zoom]);
+  const wide = overflow.scroll > overflow.client + 1;
+  const syncing = useRef(false);
+  function sync(from: HTMLDivElement | null, to: HTMLDivElement | null) {
+    if (!from || !to || syncing.current) return;
+    syncing.current = true;
+    to.scrollLeft = from.scrollLeft;
+    requestAnimationFrame(() => (syncing.current = false));
+  }
+
+  function changeZoom(value: number) {
+    setZoom(value);
+    try {
+      window.localStorage.setItem("gp.docZoom", String(value));
+    } catch {
+      // stockage indisponible
+    }
+  }
 
   useEffect(() => {
     onBlockedRef.current = onBlocked;
@@ -126,13 +170,30 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
 
   return (
     <div className="flex flex-col">
-      {editor && <Toolbar editor={editor} readOnly={readOnly} onComment={identity ? onComment : undefined} onUploadImage={readOnly ? undefined : onUploadImage} />}
-      <div className="print-reset flex justify-center px-2 py-4 sm:px-6 sm:py-8">
-        <div className="page" onMouseOver={onMouseOver} onMouseLeave={() => setTip(null)}>
-          {showHeader && <DocHeader doc={provider.getYDoc()} editable={Boolean(identity) && !readOnly} onEdited={onHeaderEdited} />}
-          <EditorContent editor={editor} />
-        </div>
+      {editor && <Toolbar editor={editor} zoom={zoom} onZoom={changeZoom} readOnly={readOnly} onComment={identity ? onComment : undefined} onUploadImage={readOnly ? undefined : onUploadImage} />}
+      <div
+        ref={area}
+        onScroll={() => sync(area.current, bar.current)}
+        className="print-reset no-scrollbar flex overflow-x-auto px-2 py-4 sm:px-6 sm:py-8"
+        style={{ justifyContent: "safe center" }}
+      >
+        <ZoomBox zoom={zoom}>
+          <div className="page" onMouseOver={onMouseOver} onMouseLeave={() => setTip(null)}>
+            {showHeader && <DocHeader doc={provider.getYDoc()} editable={Boolean(identity) && !readOnly} onEdited={onHeaderEdited} />}
+            <EditorContent editor={editor} />
+          </div>
+        </ZoomBox>
       </div>
+      {wide && (
+        <div
+          ref={bar}
+          onScroll={() => sync(bar.current, area.current)}
+          className="no-print sticky bottom-0 z-10 overflow-x-auto overflow-y-hidden border-t border-neutral-200 bg-white/90 backdrop-blur"
+          aria-hidden
+        >
+          <div style={{ width: overflow.scroll, height: 1 }} />
+        </div>
+      )}
       {tip && (
         <div
           role="tooltip"

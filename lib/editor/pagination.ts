@@ -82,12 +82,15 @@ function measure(view: EditorView): DecorationSet {
   };
   const pageHeight = (pageEl.clientWidth * 297) / 210; // proportions A4
   const contentHeight = pageHeight - layout.padTop - layout.padBottom;
-  const origin = pageEl.getBoundingClientRect().top + layout.padTop;
+  // Zoom de la page (loupe) : les mesures à l'écran sont agrandies, on les ramène à la vraie taille.
+  const pageRect = pageEl.getBoundingClientRect();
+  const scale = pageEl.offsetWidth ? pageRect.width / pageEl.offsetWidth : 1;
+  const origin = pageRect.top / scale + layout.padTop;
 
   // Hauteurs des sauts de page déjà affichés : on les retire pour retrouver le texte "sans pages".
   const widgets = Array.from(view.dom.querySelectorAll<HTMLElement>(":scope > .page-break")).map((w) => {
     const r = w.getBoundingClientRect();
-    return { top: r.top, height: r.height };
+    return { top: r.top / scale, height: r.height / scale };
   });
   const flow = (y: number) => y - origin - widgets.filter((w) => w.top < y).reduce((s, w) => s + w.height, 0);
 
@@ -100,8 +103,8 @@ function measure(view: EditorView): DecorationSet {
     const dom = view.nodeDOM(offset);
     if (!(dom instanceof HTMLElement)) return;
     const rect = dom.getBoundingClientRect();
-    const top = flow(rect.top);
-    const bottom = top + rect.height;
+    const top = flow(rect.top / scale);
+    const bottom = top + rect.height / scale;
     if (bottom - pageTop > contentHeight && top > pageTop + 1) {
       const filler = pageTop + contentHeight - previousBottom;
       const n = page;

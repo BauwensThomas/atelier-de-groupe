@@ -21,9 +21,12 @@ import {
   Search,
   MessageSquarePlus,
   ImagePlus,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DocStats } from "./DocStats";
+import { DOC_ZOOMS } from "./ZoomBox";
 import { SearchBar } from "./SearchBar";
 import { closeSearch } from "@/lib/editor/search";
 import { IMAGE_SIZES, imageWidth, pickAndInsertImage } from "@/lib/editor/image";
@@ -66,9 +69,12 @@ type Props = {
   onUploadImage?: (file: File) => Promise<string | null>;
   /** Professeur : seulement Rechercher et Commenter. */
   readOnly?: boolean;
+  zoom: number;
+  onZoom: (zoom: number) => void;
 };
 
-export function Toolbar({ editor, onComment, onUploadImage, readOnly = false }: Props) {
+export function Toolbar({ editor, onComment, onUploadImage, readOnly = false, zoom, onZoom }: Props) {
+  const zoomIndex = DOC_ZOOMS.indexOf(zoom) === -1 ? DOC_ZOOMS.indexOf(1) : DOC_ZOOMS.indexOf(zoom);
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -257,6 +263,24 @@ export function Toolbar({ editor, onComment, onUploadImage, readOnly = false }: 
       )}
 
       <DocStats editor={editor} />
+
+      {/* Zoom de la page (ordinateur) */}
+      <div className="hidden items-center sm:flex" role="group" aria-label="Zoom de la page">
+        <ToolButton label="Dézoomer la page" disabled={zoomIndex <= 0} onClick={() => onZoom(DOC_ZOOMS[zoomIndex - 1])}>
+          <ZoomOut size={15} aria-hidden />
+        </ToolButton>
+        <button
+          type="button"
+          onClick={() => onZoom(1)}
+          title="Revenir à 100 %"
+          className="w-11 rounded-md py-1 text-center text-xs text-neutral-600 tabular-nums hover:bg-neutral-100"
+        >
+          {Math.round(zoom * 100)} %
+        </button>
+        <ToolButton label="Zoomer la page" disabled={zoomIndex >= DOC_ZOOMS.length - 1} onClick={() => onZoom(DOC_ZOOMS[zoomIndex + 1])}>
+          <ZoomIn size={15} aria-hidden />
+        </ToolButton>
+      </div>
 
       {searching && <SearchBar key={searchTick} editor={editor} onClose={() => setSearching(false)} />}
     </div>
