@@ -515,3 +515,27 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Auteurs : virgules seulement en noir et blanc */
+.author-comma {
+  display: none;
+}
+
+/* "Tout en noir" : prénoms des auteurs en noir, sans carrés, séparés par des virgules */
+@media print {
+  body.print-black .author-square {
+    display: none !important;
+  }
+
+  body.print-black .author-name {
+    color: #000 !important;
+  }
+
+  body.print-black .author-comma {
+    display: inline;
+  }
+
+  body.print-black .author-legend {
+    column-gap: 0.3em;
+  }
+}

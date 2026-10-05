@@ -67,6 +67,9 @@ type Props = {
   unreadMentions: Set<string>;
   onOpenThread: (id: string) => void;
   sheets: Sheet[];
+  ydoc: import("yjs").Doc;
+  currentSheet: string;
+  onGoToBlock: (sheet: string, index: number) => void;
   /** Professeur : lecture seule. */
   readOnly: boolean;
   files: ProjectFile[];
@@ -188,9 +191,12 @@ export function SidePanel(props: Props) {
               </span>
               <span className="truncate">{p.name || "Sans prénom"}</span>
               {p.me && <span className="text-[11px] text-neutral-400">(moi)</span>}
-              <span className={`ml-auto shrink-0 text-[11px] ${p.typing ? "font-medium text-green-700" : "text-neutral-400"}`}>
+              {/* Aligné à droite ; la place du bouton de retrait est gardée aussi pour les personnes en ligne,
+                  pour que "en ligne" et "vu le ..." finissent au même endroit. */}
+              <span className={`ml-auto shrink-0 text-right text-[11px] ${p.typing ? "font-medium text-green-700" : "text-neutral-400"}`}>
                 {p.typing ? "écrit…" : p.online ? "en ligne" : lastSeen(p.seen)}
               </span>
+              {p.online && <span className="w-[17px] shrink-0" aria-hidden />}
               {!p.online && (
                 <button
                   type="button"
@@ -262,7 +268,9 @@ export function SidePanel(props: Props) {
 
       {!props.readOnly && <TaskPanel tasks={props.tasks} actions={props.taskActions} onOpenBoard={props.onOpenTasks} />}
 
-      {props.editor && <Outline editor={props.editor} />}
+      {props.editor && (
+        <Outline editor={props.editor} doc={props.ydoc} sheets={props.sheets} current={props.currentSheet} onGo={props.onGoToBlock} />
+      )}
 
       {!props.readOnly && <ActivityList items={props.activity} />}
 

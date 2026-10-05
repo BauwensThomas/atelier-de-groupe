@@ -303,22 +303,31 @@ function headingStyle(level: 1 | 2 | 3) {
 }
 
 /** header : titre et auteurs en haut (feuille principale seulement, comme à l'écran). */
-export type DocMeta = { title: string; authors: string; header?: boolean };
+/** legend : les auteurs (membres du groupe) et leur couleur, pour la ligne "Auteurs :". */
+export type DocMeta = { title: string; authors: string; header?: boolean; legend?: Array<{ name: string; color: string; label: string }> };
 
 function titlePage(meta: DocMeta): Paragraph[] {
   if (meta.header === false) return [];
-  // Mêmes hauteurs qu'à l'écran : titre (1,9 em, gras, lignes de 38 px), 8 px, auteurs (ligne de 24 px),
+  // Mêmes hauteurs qu'à l'écran : titre (1,9 em, gras, lignes de 38 px), 8 px, ligne "Auteurs" (24 px),
   // 20 px, trait, puis 32 px avant le contenu. Le titre peut faire plusieurs lignes, comme à l'écran.
   const title = new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { before: 0, after: 0, ...exact(570) },
     children: [new TextRun({ text: meta.title, bold: true, size: 46, color: BLACK })],
   });
+  const people = meta.legend ?? [];
+  const names =
+    colorMode === "color"
+      ? people.flatMap((a) => [
+          new TextRun({ text: "   \u25A0 ", size: 24, color: a.color.slice(1).toUpperCase() }),
+          new TextRun({ text: a.name, size: 24, color: a.color.slice(1).toUpperCase() }),
+        ])
+      : [new TextRun({ text: " " + people.map((a) => a.name).join(", "), size: 24, color: BLACK })];
   const authors = new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { before: 120, after: 480, ...exact(360) },
     border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "E5E5E5", space: 15 } },
-    children: [new TextRun({ text: meta.authors, size: 24, color: BLACK })],
+    children: [new TextRun({ text: "Auteurs :", size: 24, color: BLACK }), ...names],
   });
   return [title, authors];
 }

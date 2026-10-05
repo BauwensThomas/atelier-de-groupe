@@ -12,7 +12,8 @@ En ligne : https://ateliergroup.vercel.app (mode d'emploi sur `/aide`).
 - Une demande de projet envoie un e-mail à l'administrateur (`ADMIN_EMAIL`), qui accepte ou refuse depuis le lien reçu. Le projet est réservé "en attente" jusque-là.
 - Chaque projet a son adresse (`/p/nom-du-projet`) et son mot de passe. Pas de base de données : chaque projet est un salon Liveblocks, avec son nom et l'empreinte (scrypt) de son mot de passe dans les informations privées du salon.
 - Le bouton "Partager" copie le lien du projet (le mot de passe reste demandé).
-- Après connexion, chacun choisit son prénom et sa couleur (les couleurs déjà prises sont grisées).
+- Après connexion, chacun choisit son prénom et sa couleur parmi 8 (une couleur déjà prise est grise avec un interdit rouge). Tant que ce n'est pas fait, rien du projet n'est affiché (confidentialité).
+- En-tête : titre du projet, puis "Auteurs :" rempli automatiquement avec les membres, chacun avec un carré et son prénom dans sa couleur (en "Tout en noir" : prénoms en noir, sans carrés). Le texte suit toujours la couleur actuelle de son auteur.
 - Tout le texte tapé ou collé prend la couleur de son auteur. Le survol d'un texte affiche le prénom de l'auteur.
 - Les blocs "Question" restent en noir. Ils se verrouillent dès qu'on en sort. Le cadenas en haut à droite permet de les déverrouiller pour corriger.
 - Le texte d'un autre n'est pas effacé mais barré (son auteur peut l'effacer ou le restaurer). Le texte barré n'apparaît pas à l'export.
@@ -20,11 +21,11 @@ En ligne : https://ateliergroup.vercel.app (mode d'emploi sur `/aide`).
 - Versions : copie automatique de chaque feuille toutes les 10 minutes, "Enregistrer une version", restauration (une ligne par enregistrement, une ou toutes les feuilles).
 - Feuilles : plusieurs pages blanches par projet ("Nouvelle feuille"), chacune avec son texte, ses versions et ses commentaires.
 - Barre d'outils : titres, gras, italique, listes, tableaux, images (bouton, coller ou glisser ; taille réglable), "Rechercher" (Ctrl+F), "Commenter", compteur de mots et de pages.
-- Panneau de droite (repliable) : projet et date de rendu (compte à rebours "J-5"), membres en ligne, fichiers, commentaires, tâches, sommaire (sujets et questions), activité.
+- Panneau de droite (repliable) : projet et date de rendu (compte à rebours "J-5"), membres en ligne, fichiers, commentaires, tâches, sommaire de toutes les feuilles (sujets et questions), activité.
 - Fichiers du projet (50 Mo) : image, PDF, Word, Excel, PowerPoint, envoyés une fois pour tout le groupe et ouverts à côté du document (bordure réglable, zoom, plein écran). Word, Excel et PowerPoint passent par la visionneuse Office de Microsoft (lien secret de 10 minutes) ; un "Aperçu simplifié" les affiche sans quitter le site.
 - Commentaires sur un passage, avec réponses, "résolu" et mentions @prénom (rappel à l'écran pour la personne citée).
 - Tâches du groupe (qui, pour quand, à faire, en cours, fini), en liste et en tableau.
-- Lien professeur : lecture seule (imposée par Liveblocks), notes en rose sur des passages, couleur réservée ; le professeur ne voit ni les fichiers, ni les tâches, ni l'activité.
+- Lien professeur : lecture seule (imposée par Liveblocks), notes en rose sur des passages, couleur réservée ; le professeur ne voit ni les fichiers, ni les tâches, ni l'activité. Ses visites (avec leur durée) et ses notes apparaissent dans l'activité des élèves (gardées dans le salon des notes).
 
 ## Variables d'environnement
 
@@ -109,7 +110,7 @@ Pour changer une variable plus tard : projet Vercel, onglet "Settings", puis "En
 
 1. Sur l'accueil, onglet "Demander un projet" : remplir le formulaire. L'administrateur reçoit un e-mail et accepte la demande.
 2. Ouvrir le site dans deux navigateurs différents (par exemple une fenêtre normale et une fenêtre privée), et rejoindre le projet dans les deux (nom + mot de passe).
-3. Choisir un prénom et une couleur dans chacun : la couleur du premier doit être grisée dans le second.
+3. Choisir un prénom et une couleur dans chacun : la couleur du premier doit être grise, avec un interdit rouge, dans le second.
 4. Dans le panneau de droite, chacun doit voir l'autre dans "Membres".
 5. Écrire dans le même paragraphe depuis les deux navigateurs : le texte apparaît en direct chez l'autre, chacun dans sa couleur, avec le curseur et le prénom de l'autre.
 6. Ajouter une "Question" et un "Sujet", effacer le texte de l'autre (il reste barré), tester "Versions", "Exporter en Word" et "Imprimer / PDF".

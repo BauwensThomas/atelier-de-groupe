@@ -12,7 +12,7 @@ import { Question } from "@/lib/editor/question";
 import { DocImage } from "@/lib/editor/image";
 import { Pagination } from "@/lib/editor/pagination";
 import { ZoomBox } from "./ZoomBox";
-import { describeReason, groupVersions, versionSheet, type Version } from "@/lib/versions";
+import { describeReason, groupVersions, versionAuthors, versionSheet, type Version } from "@/lib/versions";
 import { MAIN_SHEET, type Sheet } from "@/lib/sheets";
 import { useConfirm } from "./ConfirmDialog";
 
@@ -34,6 +34,24 @@ function when(t: number): string {
   const day = d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
   const hour = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   return `${day}, ${hour}`;
+}
+
+// Ligne "Auteurs :" d'une copie, en couleur comme dans le document (ou texte libre pour les anciennes copies).
+function PreviewAuthors({ version }: { version: Version }) {
+  const authors = versionAuthors(version);
+  if (typeof authors === "string") return authors ? <p className="mt-1 text-sm">{authors}</p> : null;
+  if (!authors.length) return null;
+  return (
+    <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 text-base">
+      <span>Auteurs :</span>
+      {authors.map((a) => (
+        <span key={a.name} className="inline-flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: a.color }} aria-hidden />
+          <span style={{ color: a.color }}>{a.name}</span>
+        </span>
+      ))}
+    </p>
+  );
 }
 
 // Aperçu en lecture seule d'une version.
@@ -59,7 +77,7 @@ function Preview({ version }: { version: Version }) {
       {(version.title || version.authors) && (
         <header className="mb-6 border-b border-neutral-200 pb-4 text-center">
           {version.title && <p className="text-2xl font-bold">{version.title}</p>}
-          {version.authors && <p className="mt-1 text-sm">{version.authors}</p>}
+          <PreviewAuthors version={version} />
         </header>
       )}
       <EditorContent editor={editor} />
@@ -96,6 +114,11 @@ export function VersionsDialog({ versions, onClose, onSaveNow, onRestore, readOn
 
   function saveNow() {
     const saved = onSaveNow();
+    // La nouvelle copie (la plus récente) est affichée.
+    if (saved) {
+      setSelectedKey(null);
+      setSheetTab(null);
+    }
     setMessage(
       saved === 0
         ? "Rien n'a changé depuis la dernière version."

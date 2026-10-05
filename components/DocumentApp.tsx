@@ -15,7 +15,8 @@ import {
 import { getYjsProviderForRoom } from "@liveblocks/yjs";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { Lock, WifiOff } from "lucide-react";
-import { PROF_COLOR, isPaletteColor, saveIdentity, type Identity } from "@/lib/identity";
+import { PALETTE, PROF_COLOR, isPaletteColor, saveIdentity, type Identity } from "@/lib/identity";
+import { useProfActivity, useRecordVisit } from "@/lib/prof-activity";
 import { registerMember, removeMember, touchMember, useMembers } from "@/lib/members";
 import { describeTransaction, logActivity, purgeObsoleteActivity, useActivity } from "@/lib/activity";
 import { formatDueDate, setDueDate, useDueDate } from "@/lib/due-date";
@@ -322,6 +323,13 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     for (const p of people) if (p.name && !p.prof && isPaletteColor(p.color)) map.set(p.name, p.color);
     return map;
   }, [members, people]);
+  const legend = useMemo(() => {
+    const byName = new Map<string, string>();
+    for (const m of members) if (m.name && !byName.has(m.name)) byName.set(m.name, m.color);
+    for (const p of people) if (p.name && !p.prof) byName.set(p.name, authorColors.get(p.name) ?? byName.get(p.name) ?? p.color);
+    for (const [name, color] of authorColors) byName.set(name, color);
+    return [...byName].map(([name, color]) => ({ name, color, label: PALETTE.find((c) => c.value === color)?.label ?? "" }));
+  }, [members, people, authorColors]);
   const authorStyle = useMemo(
     () =>
       [...authorColors]
@@ -330,11 +338,16 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     [authorColors],
   );
 
-  const takenColors = useMemo(
-    // Pas les couleurs de ses propres autres écrans (même prénom).
-    () => new Set(others.filter((o) => o.id !== myId && o.color && o.name !== identity?.name).map((o) => o.color)),
-    [others, myId, identity],
-  );
+  // Couleurs prises : celles des membres du groupe (connectés ou non) et des personnes connectées,
+  // sauf les siennes (même prénom, autres écrans). Retirer un membre de la liste libère sa couleur.
+  // Les autres personnes du groupe (membres, même absents, et personnes connectées), avec leur couleur :
+  // la fenêtre "Qui es-tu ?" en déduit les couleurs prises et prévient si un prénom est déjà utilisé.
+  const otherPeople = useMemo(() => {
+    const list: Array<{ name: string; color: string }> = [];
+    for (const m of members) if (m.id !== myId && m.name) list.push({ name: m.name, color: m.color });
+    for (const o of others) if (o.id !== myId && o.name && !o.prof) list.push({ name: o.name, color: o.color });
+    return list;
+  }, [members, others, myId]);
 
   const [editing, setEditing] = useState(false);
   const saveChoice = useCallback(
@@ -425,7 +438,9 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     const tick = () => {
       const who = identityRef.current;
       if (!who) return;
-      const leader = othersRef.current.every((o) => Number(o.key) > myConnection);
+      // Le professeur (lecture seule) et les personnes sans prénom ne comptent pas : sinon, s'ils étaient
+      // connectés depuis plus longtemps, plus personne ne faisait les copies.
+      const leader = othersRef.current.filter((o) => !o.prof && o.name).every((o) => Number(o.key) > myConnection);
       if (!leader) return;
       const doc = provider.getYDoc();
       const batch = newBatch();
@@ -470,6 +485,27 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     if (saved) log("version-save");
     return saved;
   }, [editor, identityRef, provider, log, readOnly]);
+
+  // Sommaire : aller au n-ième sujet ou question d'une autre feuille (quand son éditeur est prêt).
+  const [pendingBlock, setPendingBlock] = useState<{ sheet: string; index: number } | null>(null);
+  const goToBlock = useCallback(
+    (target: string, index: number) => {
+      setPendingBlock({ sheet: target, index });
+      selectSheet(target);
+    },
+    [selectSheet],
+  );
+  useEffect(() => {
+    if (!pendingBlock || !editor) return;
+    const field = editor.extensionManager.extensions.find((e) => e.name === "collaboration")?.options.field;
+    if (field !== sheetField(pendingBlock.sheet)) return;
+    const target = pendingBlock;
+    const timer = setTimeout(() => {
+      editor.view.dom.querySelectorAll<HTMLElement>(".question-block")[target.index]?.scrollIntoView({ block: "start", behavior: "smooth" });
+      setPendingBlock(null);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [pendingBlock, editor]);
 
   // Restaure une ou plusieurs feuilles d'un enregistrement (la feuille affichée par l'éditeur, les autres
   // directement dans le document partagé). Une copie de l'état actuel est faite avant.
@@ -535,6 +571,11 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     };
   }, [notes, editor]);
   const thread = openThread ? (threads.find((t) => t.id === openThread) ?? null) : null;
+
+  // Suivi du professeur : sa visite est notée (salon des notes), et visible dans l'activité des élèves.
+  useRecordVisit(notes?.doc ?? null, readOnly, identity?.name, identity?.color);
+  const profActivity = useProfActivity(notes?.doc ?? null, threads);
+  const allActivity = useMemo(() => [...activity, ...profActivity], [activity, profActivity]);
 
   // Mentions @prénom : prénoms proposés (élèves, et professeurs qui ont écrit une note), sauf le sien.
   // Le professeur s'inscrit dans le salon des notes : on peut le citer même quand il n'est pas connecté.
@@ -756,6 +797,7 @@ Il sera supprimé pour tout le groupe.`,
           title: sheet.id === MAIN_SHEET ? doc.getText("title").toString().trim() : sheet.name,
           authors: doc.getText("authors").toString().trim(),
           header: sheet.id === MAIN_SHEET,
+          legend,
         },
         mode,
         pageBreakIndices(editor.state),
@@ -814,6 +856,10 @@ Il sera supprimé pour tout le groupe.`,
         </div>
       )}
 
+      {/* Confidentialité : rien du projet (texte, membres, fichiers…) n'est affiché tant que la personne n'a pas
+          choisi son prénom ; la fenêtre "Qui es-tu ?" s'affiche alors sur un fond opaque. */}
+      {identity && (
+        <>
       {/* Petit espace de 8 px en haut ; le bandeau du document, le panneau et le fichier restent collés à cette hauteur.
           Cette bande (couleur du fond, toute la largeur) cache ce qui défile dans l'espace, bords de la carte compris. */}
       <div className="no-print sticky top-0 z-30 -mb-2 hidden h-2 bg-neutral-100 sm:block" aria-hidden />
@@ -863,6 +909,7 @@ Il sera supprimé pour tout le groupe.`,
               key={sheet.id}
               field={sheetField(sheet.id)}
               showHeader={sheet.id === MAIN_SHEET}
+              legend={legend}
               tabs={
               <SheetTabs
                 sheets={sheets}
@@ -946,7 +993,10 @@ Il sera supprimé pour tout le groupe.`,
             identity={identity}
             people={people}
             onRemoveMember={onRemoveMember}
-            activity={activity}
+            activity={allActivity}
+            ydoc={provider.getYDoc()}
+            currentSheet={sheet.id}
+            onGoToBlock={goToBlock}
             sync={sync}
             canExport={Boolean(editor)}
             exporting={exporting}
@@ -979,6 +1029,8 @@ Il sera supprimé pour tout le groupe.`,
           </div>
         </aside>
       </div>
+        </>
+      )}
 
       <IdleGuard
         onIdle={() => {
@@ -1085,10 +1137,11 @@ Il sera supprimé pour tout le groupe.`,
       {showDialog && (
         <IdentityDialog
           initial={identity}
-          takenColors={takenColors}
+          others={otherPeople}
           onSave={saveChoice}
           onCancel={identity ? () => setEditing(false) : undefined}
           fixedColor={readOnly ? PROF_COLOR : undefined}
+          cover={!identity}
         />
       )}
     </div>

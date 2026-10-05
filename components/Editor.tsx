@@ -18,7 +18,7 @@ import { Search } from "@/lib/editor/search";
 import { Comments } from "@/lib/editor/comments";
 import { ReadOnlyGuard } from "@/lib/editor/read-only";
 import { DocImage } from "@/lib/editor/image";
-import { DocHeader } from "./DocHeader";
+import { DocHeader, type LegendItem } from "./DocHeader";
 import { ZoomBox } from "./ZoomBox";
 import { Toolbar } from "./Toolbar";
 
@@ -42,13 +42,15 @@ type Props = {
   showHeader: boolean;
   /** Onglets des feuilles, collés en haut avec la barre d'outils. */
   tabs?: ReactNode;
+  /** Couleur de chaque auteur, affichée sous les auteurs. */
+  legend?: LegendItem[];
 };
 
 type Tip = { name: string; x: number; y: number } | null;
 
 const GUEST = { name: "Invité", color: "#6b7280" };
 
-export function Editor({ provider, identity, identityRef, onBlocked, onReady, onHeaderEdited, readOnly, onOpenThread, onComment, onUploadImage, field, showHeader, tabs }: Props) {
+export function Editor({ provider, identity, identityRef, onBlocked, onReady, onHeaderEdited, readOnly, onOpenThread, onComment, onUploadImage, field, showHeader, tabs, legend }: Props) {
   const onBlockedRef = useRef(onBlocked);
   const onOpenThreadRef = useRef(onOpenThread);
   const uploadRef = useRef(onUploadImage);
@@ -192,7 +194,7 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
       >
         <ZoomBox zoom={zoom}>
           <div className="page" onMouseOver={onMouseOver} onMouseLeave={() => setTip(null)}>
-            {showHeader && <DocHeader doc={provider.getYDoc()} editable={Boolean(identity) && !readOnly} onEdited={onHeaderEdited} />}
+            {showHeader && <DocHeader doc={provider.getYDoc()} editable={Boolean(identity) && !readOnly} onEdited={onHeaderEdited} legend={legend} />}
             <EditorContent editor={editor} />
           </div>
         </ZoomBox>

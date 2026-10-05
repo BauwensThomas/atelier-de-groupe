@@ -8,6 +8,7 @@ import { prosemirrorJSONToYXmlFragment, yXmlFragmentToProsemirrorJSON } from "@t
 import type { Identity } from "@/lib/identity";
 import { internalKey } from "@/lib/editor/shared";
 import { MAIN_SHEET, sheetField } from "@/lib/sheets";
+import { readMembers } from "@/lib/members";
 
 // Copies du document, stockées à part dans le document Yjs (effacer le texte ne les touche pas).
 
@@ -99,7 +100,7 @@ export function saveVersion(
   // Titre et auteurs : seulement pour la feuille principale.
   const main = sheet === MAIN_SHEET;
   const title = main ? doc.getText("title").toString() : "";
-  const authors = main ? doc.getText("authors").toString() : "";
+  const authors = main ? authorsOf(doc) : "";
   const previous = lastVersion(doc, sheet);
   if (previous && previous.json === json && previous.title === title && previous.authors === authors) {
     return false;
@@ -128,6 +129,25 @@ export function saveVersion(
   return true;
 }
 
+/** Auteurs (membres du groupe, avec leur couleur), enregistrés avec chaque copie de la feuille principale :
+ *  un nouvel auteur ou un changement de couleur compte comme une modification. */
+export function authorsOf(doc: Y.Doc): string {
+  const byName = new Map<string, string>();
+  for (const m of readMembers(doc)) if (!byName.has(m.name)) byName.set(m.name, m.color);
+  return JSON.stringify([...byName].map(([name, color]) => ({ name, color })));
+}
+
+/** Auteurs d'une copie : liste avec couleurs, ou texte libre pour les anciennes copies. */
+export function versionAuthors(version: Version): Array<{ name: string; color: string }> | string {
+  try {
+    const list = JSON.parse(version.authors) as unknown;
+    if (Array.isArray(list)) return list.filter((a): a is { name: string; color: string } => typeof a?.name === "string" && typeof a?.color === "string");
+  } catch {
+    // ancienne copie : texte écrit à la main
+  }
+  return version.authors;
+}
+
 function replaceText(ytext: Y.Text, value: string) {
   if (ytext.toString() === value) return;
   ytext.delete(0, ytext.length);
@@ -144,8 +164,8 @@ export function restoreVersion(doc: Y.Doc, editor: Editor, version: Version, who
   view.dispatch(state.tr.replaceWith(0, state.doc.content.size, content.content).setMeta(internalKey, true).setMeta(RESTORE_META, true));
   if (sheet !== MAIN_SHEET) return;
   doc.transact(() => {
+    // Le titre revient ; les auteurs (membres du groupe) ne changent pas avec une restauration.
     replaceText(doc.getText("title"), version.title);
-    replaceText(doc.getText("authors"), version.authors);
   });
 }
 
@@ -163,7 +183,6 @@ export function restoreSheetVersion(doc: Y.Doc, schema: Schema, version: Version
     prosemirrorJSONToYXmlFragment(schema, JSON.parse(version.json), fragment);
     if (sheet === MAIN_SHEET) {
       replaceText(doc.getText("title"), version.title);
-      replaceText(doc.getText("authors"), version.authors);
     }
   });
 }

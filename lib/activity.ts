@@ -32,7 +32,10 @@ export type ActivityType =
   | "sheet-add"
   | "sheet-delete"
   | "file-add"
-  | "file-delete";
+  | "file-delete"
+  | "prof-visit"
+  | "prof-note"
+  | "prof-reply";
 
 export type Activity = {
   t: number;
@@ -237,6 +240,12 @@ export function describeActivity(a: Activity): string {
       return "a enregistré une version";
     case "version-restore":
       return a.detail ? `a restauré la version de ${a.detail}` : "a restauré une version";
+    case "prof-visit":
+      return `a consulté le projet en tant que professeur (${a.detail ?? ""})`;
+    case "prof-note":
+      return "a laissé une note (professeur)";
+    case "prof-reply":
+      return "a répondu à un commentaire (professeur)";
     case "file-add":
       return `a ajouté le fichier « ${a.detail ?? ""} »`;
     case "file-delete":

@@ -100,9 +100,10 @@ function SyncedField({ ytext, placeholder, label, editable, maxLength, className
   );
 }
 
-type HeaderProps = { doc: Y.Doc; editable: boolean; onEdited?: (field: HeaderField) => void };
+export type LegendItem = { name: string; color: string; label: string };
+type HeaderProps = { doc: Y.Doc; editable: boolean; onEdited?: (field: HeaderField) => void; legend?: LegendItem[] };
 
-export function DocHeader({ doc, editable, onEdited }: HeaderProps) {
+export function DocHeader({ doc, editable, onEdited, legend = [] }: HeaderProps) {
   return (
     <header className="mb-8 border-b border-neutral-200 pb-5">
       <SyncedField
@@ -114,15 +115,20 @@ export function DocHeader({ doc, editable, onEdited }: HeaderProps) {
         onEdited={() => onEdited?.("title")}
         className="text-[1.9em] font-bold leading-tight"
       />
-      <SyncedField
-        ytext={doc.getText("authors")}
-        label="Auteurs"
-        placeholder="Auteurs (ex : Thomas, Léa, Hugo, Inès)"
-        editable={editable}
-        maxLength={300}
-        onEdited={() => onEdited?.("authors")}
-        className="mt-2 text-base"
-      />
+      {/* Auteurs : les membres du groupe, chacun avec son carré et son prénom dans sa couleur.
+          À l'impression "Tout en noir" : prénoms en noir, sans carrés. */}
+      <p className="author-legend mt-2 flex flex-wrap items-center justify-center gap-x-3 text-base leading-6">
+        <span>Auteurs :</span>
+        {legend.map((a, i) => (
+          <span key={a.name} className="inline-flex items-center gap-1.5">
+            <span className="author-square h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: a.color }} aria-hidden />
+            <span className="author-name" style={{ color: a.color }}>
+              {a.name}
+              <span className="author-comma">{i < legend.length - 1 ? "," : ""}</span>
+            </span>
+          </span>
+        ))}
+      </p>
     </header>
   );
 }

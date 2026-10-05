@@ -80,7 +80,9 @@ export default function HelpPage() {
               <strong>« Entrer »</strong>.
             </li>
             <li>
-              Choisis ton <strong>prénom</strong> et ta <strong>couleur</strong>. Les couleurs déjà prises sont grisées.
+              Choisis ton <strong>prénom</strong> et ta <strong>couleur</strong> (8 couleurs). Une couleur déjà prise par un membre du
+              groupe (même absent) est grise, avec un panneau d&apos;interdiction rouge. Un prénom déjà utilisé est refusé : ajoute
+              l&apos;initiale de ton nom (ex : Thomas B.), ou coche « C&apos;est bien moi » si c&apos;est toi sur un autre appareil. Tant que ce n&apos;est pas fait, rien du projet n&apos;est visible.
             </li>
             <li>
               Pour inviter le groupe : bouton <strong>« Partager »</strong> en haut à droite, qui copie le lien. Le mot de
@@ -99,7 +101,8 @@ export default function HelpPage() {
               Survole un texte pour savoir <strong>qui l&apos;a écrit</strong>.
             </li>
             <li>
-              En haut du document : <strong>« Titre du projet »</strong> et <strong>« Auteurs »</strong>.
+              En haut du document : le <strong>« Titre du projet »</strong>, puis <strong>« Auteurs : »</strong>, rempli tout seul avec
+              les membres du groupe, chacun dans sa couleur. Si tu changes de couleur, ton texte change aussi.
             </li>
             <li>La barre d&apos;outils permet de faire des titres, du gras, de l&apos;italique, des listes et des tableaux.</li>
             <li>
@@ -111,7 +114,8 @@ export default function HelpPage() {
               suivant.
             </li>
             <li>
-              Le <strong>« Sommaire »</strong> du panneau de droite liste les sujets et les questions : un clic t&apos;y emmène.
+              Le <strong>« Sommaire »</strong> du panneau de droite liste les sujets et les questions de <strong>toutes les
+              feuilles</strong> : un clic t&apos;y emmène, même sur une autre feuille.
             </li>
             <li>
               Le nombre de <strong>mots</strong> et de <strong>pages</strong> est affiché au bout de la barre d&apos;outils.
@@ -160,7 +164,8 @@ export default function HelpPage() {
               <strong>revenir à une version précédente</strong>.
             </li>
             <li>
-              Le panneau <strong>« Activité »</strong> montre qui a fait quoi, et à quelle heure.
+              Le panneau <strong>« Activité »</strong> montre qui a fait quoi, et à quelle heure, y compris les visites du
+              professeur (avec leur durée) et ses notes.
             </li>
           </Points>
         </Section>
