@@ -86,10 +86,11 @@ function fromJson(doc: JSONContent): Entry[] {
 }
 
 /** Sommaires des feuilles non affichées, mis à jour quand le document change. */
-function useOtherSheets(doc: Y.Doc, sheets: Sheet[], current: string): Record<string, Entry[]> {
+function useOtherSheets(doc: Y.Doc | undefined, sheets: Sheet[], current: string): Record<string, Entry[]> {
   const [map, setMap] = useState<Record<string, Entry[]>>({});
   const key = sheets.map((s) => s.id).join(",");
   useEffect(() => {
+    if (!doc) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const compute = () => {
       const next: Record<string, Entry[]> = {};
@@ -127,10 +128,14 @@ type Props = {
   onGo: (sheet: string, index: number) => void;
 };
 
-export function Outline({ editor, doc, sheets, current, onGo }: Props) {
+// Valeurs par défaut : le sommaire reste affichable même si une information manque un instant
+// (par exemple pendant un rechargement du code en développement).
+export function Outline({ editor, doc, sheets = [], current, onGo }: Props) {
   const here = useEditorState({ editor, selector: ({ editor: e }) => fromEditor(e) });
   const others = useOtherSheets(doc, sheets, current);
-  const groups = sheets.map((s) => ({ sheet: s, items: s.id === current ? here : (others[s.id] ?? []) }));
+  // Toujours au moins la feuille affichée.
+  const list = sheets.length ? sheets : [{ id: current, name: "", t: 0 }];
+  const groups = list.map((s) => ({ sheet: s, items: s.id === current ? here : (others[s.id] ?? []) }));
   const total = groups.reduce((n, g) => n + g.items.length, 0);
 
   function go(sheet: string, item: Entry) {
