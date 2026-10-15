@@ -43,7 +43,8 @@ export function SaveButton({ state, onSave, compact = false }: { state: SaveStat
         aria-label={label}
         className={`flex h-9 w-9 items-center justify-center rounded-md ${look.className}`}
       >
-        <Icon size={17} aria-hidden />
+        {/* Panneau replié : toujours la disquette, la couleur dit si c'est enregistré. */}
+        <Save size={17} aria-hidden />
       </button>
     );
   }

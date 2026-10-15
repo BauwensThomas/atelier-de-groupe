@@ -87,7 +87,7 @@ type Props = {
 
 const SYNC_LABEL: Record<SyncState, { text: string; dot: string }> = {
   synced: { text: "Synchronisé", dot: "bg-green-600" },
-  syncing: { text: "Enregistrement…", dot: "bg-amber-500" },
+  syncing: { text: "Envoi…", dot: "bg-amber-500" },
   connecting: { text: "Connexion…", dot: "bg-amber-500 animate-pulse" },
   offline: { text: "Hors ligne", dot: "bg-red-600" },
 };
