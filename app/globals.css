@@ -539,3 +539,44 @@ body {
     column-gap: 0.3em;
   }
 }
+
+/* Export de plusieurs feuilles : affichées hors de l'écran (largeur A4, découpées en pages), puis imprimées
+   à la suite à la place du document affiché. Chaque feuille commence sur une nouvelle page ; la numérotation
+   des pages continue. */
+.sheets-render {
+  position: absolute;
+  left: -100000px;
+  top: 0;
+  width: 210mm;
+  pointer-events: none;
+}
+
+.sheets-render .page {
+  width: 210mm;
+  max-width: 210mm;
+}
+
+@media print {
+  body:not(.print-sheets) .sheets-render {
+    display: none !important;
+  }
+
+  body.print-sheets .live-doc {
+    display: none !important;
+  }
+
+  body.print-sheets .sheets-render {
+    position: static;
+    left: auto;
+    width: auto;
+  }
+
+  .sheet-render-item + .sheet-render-item {
+    break-before: page;
+  }
+
+  /* Pas de texte d'aide dans une feuille vide imprimée */
+  .tiptap p.is-editor-empty::before {
+    content: none !important;
+  }
+}

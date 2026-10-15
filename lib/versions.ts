@@ -56,6 +56,8 @@ const MAX_TOTAL = 90;
 /** Meta posée sur la transaction de restauration (ignorée par le journal d'activité). */
 export const RESTORE_META = "gp-restore";
 export const AUTO_INTERVAL_MS = 10 * 60 * 1000;
+/** Copie de sécurité quand une personne arrête d'écrire pendant ce temps. */
+export const IDLE_SAVE_MS = 3 * 60 * 1000;
 
 function versionsArray(doc: Y.Doc): Y.Array<Version> {
   return doc.getArray<Version>("versions");
@@ -87,6 +89,18 @@ export function lastVersion(doc: Y.Doc, sheet: string = MAIN_SHEET): Version | n
   return list.length ? list[list.length - 1] : null;
 }
 
+/** Vrai si la feuille (texte, et pour la principale : titre et auteurs) diffère de sa dernière copie. */
+export function sheetChanged(doc: Y.Doc, content: PMNode, sheet: string = MAIN_SHEET): boolean {
+  const main = sheet === MAIN_SHEET;
+  const previous = lastVersion(doc, sheet);
+  if (!previous) return true;
+  return (
+    previous.json !== JSON.stringify(content.toJSON()) ||
+    previous.title !== (main ? doc.getText("title").toString() : "") ||
+    previous.authors !== (main ? authorsOf(doc) : "")
+  );
+}
+
 /** Enregistre une copie. Renvoie false si rien n'a changé depuis la dernière copie. */
 export function saveVersion(
   doc: Y.Doc,
@@ -101,10 +115,7 @@ export function saveVersion(
   const main = sheet === MAIN_SHEET;
   const title = main ? doc.getText("title").toString() : "";
   const authors = main ? authorsOf(doc) : "";
-  const previous = lastVersion(doc, sheet);
-  if (previous && previous.json === json && previous.title === title && previous.authors === authors) {
-    return false;
-  }
+  if (!sheetChanged(doc, content, sheet)) return false;
   const version: Version = {
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     t: Date.now(),

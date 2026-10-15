@@ -41,18 +41,21 @@ import { commentsKey } from "@/lib/editor/comments";
 import { pageBreakIndices } from "@/lib/editor/pagination";
 import { CommentComposer, ThreadDialog } from "./Comments";
 import { uploadImage } from "@/lib/images";
-import { MAIN_SHEET, addSheet, deleteSheet, renameSheet, sheetField, useSheets, type Sheet } from "@/lib/sheets";
+import { MAIN_SHEET, addSheet, deleteSheet, moveSheet, renameSheet, sheetField, useSheets, type Sheet } from "@/lib/sheets";
 import { yXmlFragmentToProsemirrorJSON } from "@tiptap/y-tiptap";
 import { SheetTabs } from "./SheetTabs";
+import { SheetsRender, type RenderedSheet } from "./SheetsRender";
 import { removeFile, uploadFile, useFiles, type ProjectFile } from "@/lib/files";
 import { FileViewer } from "./FileViewer";
 import { isRemote } from "@/lib/editor/shared";
 import {
   AUTO_INTERVAL_MS,
+  IDLE_SAVE_MS,
   RESTORE_META,
   isBigDeletion,
   groupVersions,
   lastVersion,
+  sheetChanged,
   newBatch,
   restoreSheetVersion,
   versionSheet,
@@ -69,7 +72,7 @@ import { CollapsedPanel } from "./CollapsedPanel";
 import { Editor } from "./Editor";
 import { IdentityDialog } from "./IdentityDialog";
 import { Loading } from "./Loading";
-import { SidePanel, type Person, type SyncState } from "./SidePanel";
+import { SidePanel, type Person, type SaveState, type SyncState } from "./SidePanel";
 
 type Props = {
   identity: Identity | null;
@@ -395,6 +398,19 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   );
   const lastEmergencySave = useRef(0);
 
+  // Modifications de la personne : une copie de sécurité est faite 3 minutes après la dernière (voir plus bas).
+  const pendingLocal = useRef(false);
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveAllRef = useRef<(reason: "manual" | "auto") => number>(() => 0);
+  const noteLocalEdit = useCallback(() => {
+    pendingLocal.current = true;
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(() => {
+      pendingLocal.current = false;
+      saveAllRef.current("auto");
+    }, IDLE_SAVE_MS);
+  }, []);
+
   // Modifications faites dans l'éditeur par la personne courante.
   useEffect(() => {
     if (!editor) return;
@@ -409,6 +425,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
           saveVersion(provider.getYDoc(), transaction.before, who, "before-delete", sheetRef.current);
         }
       }
+      if (transaction.docChanged) noteLocalEdit();
       const items = describeTransaction(transaction);
       if (items.some((item) => item.type === "write" || item.type === "erase")) markTyping();
       for (const item of items) if (item.type !== "write") log(item.type, item.detail);
@@ -417,7 +434,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     return () => {
       editor.off("transaction", onTransaction);
     };
-  }, [editor, log, markTyping, identityRef, provider, readOnly]);
+  }, [editor, log, markTyping, identityRef, provider, readOnly, noteLocalEdit]);
 
   // Versions : copie automatique toutes les 10 minutes si le document a changé.
   // Une seule personne s'en charge : celle qui a le plus petit numéro de connexion.
@@ -462,29 +479,112 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
     return () => clearInterval(timer);
   }, [editor, identityRef, myConnection, provider, readOnly]);
 
-  // "Enregistrer une version" : une copie de toutes les feuilles qui ont changé, pas seulement celle affichée.
-  // Renvoie le nombre de feuilles copiées.
-  const saveVersionNow = useCallback(() => {
-    const who = identityRef.current;
-    if (!editor || !who || readOnly) return 0;
+  // Contenu actuel de chaque feuille (celle affichée : l'éditeur ; les autres : le document partagé).
+  // Une feuille encore vide et jamais copiée est ignorée.
+  const sheetContents = useCallback(() => {
+    if (!editor) return [];
     const doc = provider.getYDoc();
-    const batch = newBatch();
-    let saved = 0;
+    const out: Array<{ id: string; content: TiptapEditor["state"]["doc"] }> = [];
     for (const s of sheetsRef.current) {
       try {
         const content =
           s.id === sheetRef.current
             ? editor.state.doc
             : editor.schema.nodeFromJSON(yXmlFragmentToProsemirrorJSON(doc.getXmlFragment(sheetField(s.id))));
-        if (s.id !== sheetRef.current && !content.content.size) continue;
-        if (saveVersion(doc, content, who, "manual", s.id, batch)) saved++;
+        const blank = !content.textContent.trim() && content.childCount <= 1 && !(s.id === MAIN_SHEET && doc.getText("title").length);
+        if (blank && !lastVersion(doc, s.id)) continue;
+        out.push({ id: s.id, content });
       } catch {
         // feuille illisible : on passe
       }
     }
-    if (saved) log("version-save");
-    return saved;
-  }, [editor, identityRef, provider, log, readOnly]);
+    return out;
+  }, [editor, provider]);
+
+  // Enregistrer : une copie de toutes les feuilles qui ont changé (dans un même enregistrement).
+  // Renvoie le nombre de feuilles copiées.
+  const saveAllSheets = useCallback(
+    (reason: "manual" | "auto") => {
+      const who = identityRef.current;
+      if (!editor || !who || readOnly) return 0;
+      const doc = provider.getYDoc();
+      const batch = newBatch();
+      let saved = 0;
+      for (const { id, content } of sheetContents()) if (saveVersion(doc, content, who, reason, id, batch)) saved++;
+      if (saved && reason === "manual") log("version-save");
+      return saved;
+    },
+    [editor, identityRef, provider, log, readOnly, sheetContents],
+  );
+  const saveVersionNow = useCallback(() => saveAllSheets("manual"), [saveAllSheets]);
+
+  // Enregistré ou pas : vrai si une feuille diffère de sa dernière copie (recalculé peu après chaque changement).
+  const [unsaved, setUnsaved] = useState(false);
+  useEffect(() => {
+    if (!editor || readOnly) return;
+    const doc = provider.getYDoc();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const check = () => {
+      timer = null;
+      setUnsaved(sheetContents().some(({ id, content }) => sheetChanged(doc, content, id)));
+    };
+    const schedule = () => {
+      if (!timer) timer = setTimeout(check, 700);
+    };
+    doc.on("update", schedule);
+    schedule();
+    return () => {
+      doc.off("update", schedule);
+      if (timer) clearTimeout(timer);
+    };
+  }, [editor, provider, readOnly, sheetContents, sheet.id]);
+
+  // Copie automatique de sécurité : 3 minutes après la dernière modification de la personne, et dès qu'elle
+  // quitte la page ou passe à un autre onglet du navigateur.
+  useEffect(() => {
+    saveAllRef.current = saveAllSheets;
+  }, [saveAllSheets]);
+  useEffect(() => {
+    if (readOnly) return;
+    const flush = () => {
+      if (!pendingLocal.current) return;
+      pendingLocal.current = false;
+      if (idleTimer.current) clearTimeout(idleTimer.current);
+      saveAllRef.current("auto");
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (idleTimer.current) clearTimeout(idleTimer.current);
+    };
+  }, [readOnly]);
+
+  // Bouton Enregistrer et Ctrl+S.
+  const onSave = useCallback(() => {
+    pendingLocal.current = false;
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+    const n = saveAllSheets("manual");
+    showNotice(n ? (n > 1 ? `Enregistré (${n} feuilles).` : "Enregistré.") : "Déjà enregistré.", 2500);
+    setUnsaved(false);
+  }, [saveAllSheets, showNotice]);
+  useEffect(() => {
+    if (readOnly) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (identityRef.current) onSave();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onSave, readOnly, identityRef]);
+  // Couleur du bouton : rouge si pas enregistré, orange pendant l'envoi, vert si tout est enregistré.
+  const saveState: SaveState = sync === "offline" ? "offline" : unsaved ? "unsaved" : sync === "synced" ? "saved" : "sending";
 
   // Sommaire : aller au n-ième sujet ou question d'une autre feuille (quand son éditeur est prêt).
   const [pendingBlock, setPendingBlock] = useState<{ sheet: string; index: number } | null>(null);
@@ -785,6 +885,60 @@ Il sera supprimé pour tout le groupe.`,
   // Fenêtre de choix "En couleur / Tout en noir" avant l'export Word ou l'impression.
   const [exportChoice, setExportChoice] = useState<"word" | "print" | null>(null);
 
+  // Export de plusieurs feuilles : elles sont préparées hors de l'écran (SheetsRender), puis imprimées ou
+  // assemblées en un seul fichier Word.
+  const [exportJob, setExportJob] = useState<{ kind: "word" | "print"; mode: ColorMode; sheets: Sheet[] } | null>(null);
+  function startExport(kind: "word" | "print", mode: ColorMode, ids: string[]) {
+    const chosen = sheets.filter((s) => ids.includes(s.id));
+    // Seulement la feuille affichée : comme avant (document affiché, sauts de page de l'écran).
+    if (chosen.length === 1 && chosen[0].id === sheet.id) {
+      if (kind === "word") void onExport(mode);
+      else printWithMode(mode);
+      return;
+    }
+    if (!chosen.length) return;
+    showNotice(kind === "word" ? "Préparation du fichier Word…" : "Préparation de l'impression…");
+    setExportJob({ kind, mode, sheets: chosen });
+  }
+  const finishExport = useCallback(
+    async (rendered: RenderedSheet[]) => {
+      const job = exportJob;
+      if (!job) return;
+      showNotice("");
+      if (job.kind === "print") {
+        document.body.classList.add("print-sheets");
+        const cleanup = () => {
+          document.body.classList.remove("print-sheets");
+          window.removeEventListener("afterprint", cleanup);
+          setExportJob(null);
+        };
+        window.addEventListener("afterprint", cleanup);
+        printWithMode(job.mode);
+        return;
+      }
+      setExporting(true);
+      try {
+        const { exportPartsToDocx } = await import("@/lib/export-docx");
+        const doc = provider.getYDoc();
+        await exportPartsToDocx(
+          rendered,
+          {
+            title: doc.getText("title").toString().trim() || project.name,
+            authors: "",
+            legend,
+          },
+          job.mode,
+          authorColors,
+        );
+      } catch {
+        await confirm({ title: "Export impossible", message: "L'export a échoué. Réessaie.", confirmLabel: "OK", cancelLabel: null });
+      }
+      setExporting(false);
+      setExportJob(null);
+    },
+    [exportJob, showNotice, provider, project.name, legend, authorColors, confirm],
+  );
+
   async function onExport(mode: ColorMode) {
     if (!editor) return;
     setExporting(true);
@@ -902,7 +1056,7 @@ Il sera supprimé pour tout le groupe.`,
         )}
         {/* Pendant le glissement, un voile capte la souris (sinon la visionneuse la garderait). */}
         {resizing && <div className="fixed inset-0 z-50 cursor-col-resize" aria-hidden />}
-        <main className={`print-reset min-w-0 flex-1 rounded-xl bg-neutral-200/60 ring-1 ring-neutral-200 ${fileSide === "left" ? "lg:order-3" : "lg:order-1"}`}>
+        <main className={`live-doc print-reset min-w-0 flex-1 rounded-xl bg-neutral-200/60 ring-1 ring-neutral-200 ${fileSide === "left" ? "lg:order-3" : "lg:order-1"}`}>
           {loaded ? (
             <>
             <Editor
@@ -922,6 +1076,7 @@ Il sera supprimé pour tout le groupe.`,
                   selectSheet(created.id);
                 }}
                 onRename={(s, name) => renameSheet(provider.getYDoc(), s, name)}
+                onMove={(s, to) => moveSheet(provider.getYDoc(), sheets, s.id, to)}
                 onDelete={async (s) => {
                   const ok = await confirm({
                     title: `Supprimer la feuille « ${s.name} » ?`,
@@ -943,6 +1098,7 @@ Il sera supprimé pour tout le groupe.`,
               onReady={setEditor}
               onHeaderEdited={(field) => {
                 markTyping();
+                noteLocalEdit();
                 log(field);
               }}
               readOnly={readOnly}
@@ -969,6 +1125,8 @@ Il sera supprimé pour tout le groupe.`,
               <CollapsedPanel
                 people={people}
                 sync={sync}
+                saveState={saveState}
+                onSave={onSave}
                 project={project}
                 canExport={Boolean(editor)}
                 onExpand={() => togglePanel(false)}
@@ -998,6 +1156,8 @@ Il sera supprimé pour tout le groupe.`,
             currentSheet={sheet.id}
             onGoToBlock={goToBlock}
             sync={sync}
+            saveState={saveState}
+            onSave={onSave}
             canExport={Boolean(editor)}
             exporting={exporting}
             onEdit={() => setEditing(true)}
@@ -1116,7 +1276,8 @@ Il sera supprimé pour tout le groupe.`,
       {exportChoice && (
         <ExportChoiceDialog
           kind={exportChoice}
-          onChoose={(mode) => (exportChoice === "word" ? onExport(mode) : printWithMode(mode))}
+          onChoose={(mode, ids) => startExport(exportChoice, mode, ids)}
+          sheets={sheets}
           onClose={() => setExportChoice(null)}
         />
       )}
@@ -1144,6 +1305,7 @@ Il sera supprimé pour tout le groupe.`,
           cover={!identity}
         />
       )}
+      {exportJob && <SheetsRender doc={provider.getYDoc()} sheets={exportJob.sheets} legend={legend} onReady={finishExport} />}
     </div>
   );
 }

@@ -306,12 +306,12 @@ function headingStyle(level: 1 | 2 | 3) {
 /** legend : les auteurs (membres du groupe) et leur couleur, pour la ligne "Auteurs :". */
 export type DocMeta = { title: string; authors: string; header?: boolean; legend?: Array<{ name: string; color: string; label: string }> };
 
-function titlePage(meta: DocMeta): Paragraph[] {
-  if (meta.header === false) return [];
+function titlePage(meta: DocMeta, newPage = false): Paragraph[] {
   // Mêmes hauteurs qu'à l'écran : titre (1,9 em, gras, lignes de 38 px), 8 px, ligne "Auteurs" (24 px),
   // 20 px, trait, puis 32 px avant le contenu. Le titre peut faire plusieurs lignes, comme à l'écran.
   const title = new Paragraph({
     alignment: AlignmentType.CENTER,
+    pageBreakBefore: newPage,
     spacing: { before: 0, after: 0, ...exact(570) },
     children: [new TextRun({ text: meta.title, bold: true, size: 46, color: BLACK })],
   });
@@ -340,20 +340,40 @@ export function buildDocx(
   pageBreaks: number[] = [],
   colors: Map<string, string> = new Map(),
 ): Document {
+  return buildDocxParts([{ json, breaks: pageBreaks, header: meta.header !== false }], meta, mode, images, colors);
+}
+
+/** Une feuille à exporter : son contenu, les blocs qui commencent une page à l'écran, et l'en-tête (principale). */
+export type DocPart = { json: JSONContent; breaks: number[]; header: boolean };
+
+/** Plusieurs feuilles dans un seul fichier, dans l'ordre : chacune commence sur une nouvelle page,
+ *  la numérotation des pages continue d'une feuille à l'autre. */
+export function buildDocxParts(
+  parts: DocPart[],
+  meta: DocMeta,
+  mode: ColorMode = "black",
+  images: Map<string, LoadedImage> = new Map(),
+  colors: Map<string, string> = new Map(),
+): Document {
   instanceCounter = 0;
   loadedImages = images;
-  const breaks = new Set(pageBreaks);
   authorColors = colors;
-  let previousBottom = 0;
   colorMode = mode;
   const title = meta.title || "Atelier de groupe";
-  const children = [
-    ...titlePage(meta),
+  const children: Array<Paragraph | Table> = [];
+  parts.forEach((part, k) => {
+    const breaks = new Set(part.breaks);
+    const content = part.json.content ?? [];
+    let previousBottom = 0;
+    if (part.header) children.push(...titlePage(meta, k > 0));
+    else if (k > 0 && !content.length) children.push(new Paragraph({ pageBreakBefore: true, spacing: { before: 0, after: 0 }, children: [] }));
     // Bloc par bloc, pour placer les sauts de page aux mêmes endroits qu'à l'écran.
-    ...(json.content ?? []).flatMap((node, index) => {
+    content.forEach((node, index) => {
+      // Nouvelle page : saut de page de l'écran, ou début d'une feuille (sauf la première exportée).
+      const newPage = breaks.has(index) || (k > 0 && index === 0 && !part.header);
       // Espace au-dessus : comme les marges de l'écran (la plus grande des deux), rien en haut d'une page.
       const atTop = index === 0 || breaks.has(index);
-      pendingBreak = breaks.has(index);
+      pendingBreak = newPage;
       pendingBefore = atTop ? 0 : Math.max(previousBottom, marginTop(node));
       const out = blocks([node], { listLevel: -1, ordered: false, numberingInstance: 0, block: null, inHeader: false });
       // Bloc sans paragraphe (tableau) : un paragraphe vide porte le saut de page.
@@ -361,9 +381,9 @@ export function buildDocx(
       pendingBreak = false;
       pendingBefore = null;
       previousBottom = marginBottom(node);
-      return out;
-    }),
-  ];
+      children.push(...out);
+    });
+  });
 
   return new Document({
     creator: "Atelier de groupe",
@@ -442,6 +462,24 @@ async function loadImages(json: JSONContent): Promise<Map<string, LoadedImage>> 
     }),
   );
   return map;
+}
+
+/** Exporte plusieurs feuilles dans un seul fichier Word. */
+export async function exportPartsToDocx(parts: DocPart[], meta: DocMeta, mode: ColorMode = "black", colors: Map<string, string> = new Map()): Promise<void> {
+  const images = await loadImages({ type: "doc", content: parts.flatMap((p) => p.json.content ?? []) });
+  download(await Packer.toBlob(buildDocxParts(parts, meta, mode, images, colors)), meta.title);
+}
+
+function download(blob: Blob, title: string) {
+  const fileName = title.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "gestion-de-projet";
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${fileName}.docx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export async function exportToDocx(

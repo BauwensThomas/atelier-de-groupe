@@ -157,11 +157,20 @@ export default function HelpPage() {
         <Section n={6} title="Ne rien perdre">
           <Points>
             <li>
-              Une copie du document est faite <strong>automatiquement</strong> toutes les 10 minutes.
+              Ce que tu écris est envoyé tout de suite : tout le groupe le voit, même si tu fermes la page ensuite.
             </li>
             <li>
-              Bouton <strong>« Versions »</strong> : voir les copies, en enregistrer une, ou{" "}
-              <strong>revenir à une version précédente</strong>.
+              Bouton <strong>« Enregistrer »</strong> en haut du panneau de droite (ou <strong>Ctrl+S</strong>) : il est{" "}
+              <strong>rouge</strong> quand des modifications ne sont pas encore dans les versions, <strong>vert</strong>{" "}
+              (« Enregistré ») quand tout est enregistré. Un clic fait une copie de <strong>toutes les feuilles
+              modifiées</strong>.
+            </li>
+            <li>
+              Copies <strong>automatiques</strong> en plus : toutes les 10 minutes, 3 minutes après ta dernière
+              modification, et quand tu quittes la page.
+            </li>
+            <li>
+              Bouton <strong>« Versions »</strong> : voir les copies, ou <strong>revenir à une version précédente</strong>.
             </li>
             <li>
               Le panneau <strong>« Activité »</strong> montre qui a fait quoi, et à quelle heure, y compris les visites du
@@ -182,6 +191,10 @@ export default function HelpPage() {
               Pour les deux, tu choisis : <strong>« En couleur »</strong> (chaque texte dans la couleur de son auteur,
               pour voir qui a écrit quoi) ou <strong>« Tout en noir »</strong> (version propre pour le rendu final). Le
               texte barré n&apos;apparaît jamais.
+            </li>
+            <li>
+              Tu choisis aussi les <strong>feuilles</strong> à inclure (toutes au départ) : un seul fichier, chaque feuille
+              commence sur une nouvelle page, dans l&apos;ordre des onglets, et les numéros de page continuent.
             </li>
           </Points>
         </Section>
@@ -216,6 +229,10 @@ export default function HelpPage() {
             <li>
               <strong>« Nouvelle feuille »</strong>, au-dessus de la barre d&apos;outils, ajoute une page blanche au projet.
               Chaque feuille a son texte, ses versions et ses commentaires. Double-clic sur un onglet pour le renommer.
+            </li>
+            <li>
+              Pour <strong>changer l&apos;ordre des feuilles</strong>, glisse un onglet à sa nouvelle place, ou utilise les
+              petites flèches de l&apos;onglet ouvert. L&apos;ordre change pour tout le groupe.
             </li>
             <li>
               Carte <strong>« Fichiers »</strong> (panneau de droite) : ajoute une image, un PDF, un Word, un Excel ou un

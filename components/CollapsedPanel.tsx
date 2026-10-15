@@ -8,6 +8,7 @@ import { FILE_TYPES } from "@/lib/file-types";
 import type { ProjectFile } from "@/lib/files";
 import type { Thread } from "@/lib/comments";
 import { ShareButton } from "./ShareButton";
+import { SaveButton, type SaveState } from "./SaveButton";
 import type { Person, SyncState } from "./SidePanel";
 import { countdown, formatDueDate, useMinuteTick } from "@/lib/due-date";
 
@@ -16,6 +17,8 @@ import { countdown, formatDueDate, useMinuteTick } from "@/lib/due-date";
 type Props = {
   people: Person[];
   sync: SyncState;
+  saveState: SaveState;
+  onSave: () => void;
   project: { slug: string; name: string };
   canExport: boolean;
   onExpand: () => void;
@@ -72,6 +75,8 @@ export function CollapsedPanel(props: Props) {
       <IconButton label="Afficher le panneau" onClick={props.onExpand}>
         <PanelRightOpen size={17} aria-hidden />
       </IconButton>
+
+      {!props.readOnly && <SaveButton compact state={props.saveState} onSave={props.onSave} />}
 
       <span className={`h-2.5 w-2.5 rounded-full ${status.dot}`} title={status.text} aria-label={status.text} role="status" />
 

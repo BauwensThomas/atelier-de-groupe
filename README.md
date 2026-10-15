@@ -17,9 +17,9 @@ En ligne : https://ateliergroup.vercel.app (mode d'emploi sur `/aide`).
 - Tout le texte tapé ou collé prend la couleur de son auteur. Le survol d'un texte affiche le prénom de l'auteur.
 - Les blocs "Question" restent en noir. Ils se verrouillent dès qu'on en sort. Le cadenas en haut à droite permet de les déverrouiller pour corriger.
 - Le texte d'un autre n'est pas effacé mais barré (son auteur peut l'effacer ou le restaurer). Le texte barré n'apparaît pas à l'export.
-- Export : "Exporter en Word" (.docx) et "Imprimer / PDF", au choix "En couleur" (couleur de chaque auteur) ou "Tout en noir".
-- Versions : copie automatique de chaque feuille toutes les 10 minutes, "Enregistrer une version", restauration (une ligne par enregistrement, une ou toutes les feuilles).
-- Feuilles : plusieurs pages blanches par projet ("Nouvelle feuille"), chacune avec son texte, ses versions et ses commentaires.
+- Export : "Exporter en Word" (.docx) et "Imprimer / PDF", au choix "En couleur" (couleur de chaque auteur) ou "Tout en noir", avec les feuilles choisies dans un seul fichier (chaque feuille sur une nouvelle page, numéros de page continus).
+- Versions : bouton "Enregistrer" (rouge si des modifications ne sont pas dans les versions, vert sinon) et Ctrl+S, qui copient toutes les feuilles modifiées ; copies automatiques toutes les 10 minutes, 3 minutes après la dernière modification et en quittant la page ; restauration (une ligne par enregistrement, une ou toutes les feuilles).
+- Feuilles : plusieurs pages blanches par projet ("Nouvelle feuille"), chacune avec son texte, ses versions et ses commentaires ; ordre des onglets réglable (glisser-déposer ou flèches).
 - Barre d'outils : titres, gras, italique, listes, tableaux, images (bouton, coller ou glisser ; taille réglable), "Rechercher" (Ctrl+F), "Commenter", compteur de mots et de pages.
 - Panneau de droite (repliable) : projet et date de rendu (compte à rebours "J-5"), membres en ligne, fichiers, commentaires, tâches, sommaire de toutes les feuilles (sujets et questions), activité.
 - Fichiers du projet (50 Mo) : image, PDF, Word, Excel, PowerPoint, envoyés une fois pour tout le groupe et ouverts à côté du document (bordure réglable, zoom, plein écran). Word, Excel et PowerPoint passent par la visionneuse Office de Microsoft (lien secret de 10 minutes) ; un "Aperçu simplifié" les affiche sans quitter le site.

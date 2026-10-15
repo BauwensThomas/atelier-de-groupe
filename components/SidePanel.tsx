@@ -17,6 +17,9 @@ import type { ProjectFile } from "@/lib/files";
 import { FilesPanel } from "./FilesPanel";
 import { CommentsPanel } from "./Comments";
 import { TeacherLinkButton } from "./TeacherLink";
+import { SaveButton, type SaveState } from "./SaveButton";
+
+export type { SaveState };
 
 export type SyncState = "synced" | "syncing" | "connecting" | "offline";
 
@@ -44,6 +47,8 @@ type Props = {
   identity: Identity | null;
   people: Person[];
   sync: SyncState;
+  saveState: SaveState;
+  onSave: () => void;
   canExport: boolean;
   exporting: boolean;
   onEdit: () => void;
@@ -100,6 +105,7 @@ export function SidePanel(props: Props) {
 
   return (
     <div className="flex flex-col gap-3 text-[13px]">
+      {identity && !props.readOnly && <SaveButton state={props.saveState} onSave={props.onSave} />}
       <section className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-neutral-200">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Projet</h2>
