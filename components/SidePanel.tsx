@@ -49,6 +49,7 @@ type Props = {
   sync: SyncState;
   saveState: SaveState;
   onSave: () => void;
+  lastCopy: number;
   canExport: boolean;
   exporting: boolean;
   onEdit: () => void;
@@ -105,7 +106,7 @@ export function SidePanel(props: Props) {
 
   return (
     <div className="flex flex-col gap-3 text-[13px]">
-      {identity && !props.readOnly && <SaveButton state={props.saveState} onSave={props.onSave} />}
+      {identity && !props.readOnly && <SaveButton state={props.saveState} onSave={props.onSave} lastCopy={props.lastCopy} />}
       <section className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-neutral-200">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Projet</h2>

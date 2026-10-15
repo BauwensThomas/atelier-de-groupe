@@ -54,6 +54,7 @@ import {
   RESTORE_META,
   isBigDeletion,
   groupVersions,
+  lastCopyTime,
   lastVersion,
   sheetChanged,
   newBatch,
@@ -73,6 +74,7 @@ import { Editor } from "./Editor";
 import { IdentityDialog } from "./IdentityDialog";
 import { Loading } from "./Loading";
 import { SidePanel, type Person, type SaveState, type SyncState } from "./SidePanel";
+import { formatCopyTime } from "./SaveButton";
 
 type Props = {
   identity: Identity | null;
@@ -441,6 +443,7 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   const allVersions = useVersions(provider.getYDoc());
   // Nombre d'enregistrements (plusieurs feuilles copiées ensemble comptent pour un).
   const versionsCount = useMemo(() => groupVersions(allVersions).length, [allVersions]);
+  const lastCopy = useMemo(() => allVersions.reduce((max, v) => Math.max(max, v.t), 0), [allVersions]);
   const sheetsRef = useRef(sheets);
   useEffect(() => {
     sheetsRef.current = sheets;
@@ -568,10 +571,20 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   const onSave = useCallback(() => {
     pendingLocal.current = false;
     if (idleTimer.current) clearTimeout(idleTimer.current);
+    const before = lastCopyTime(provider.getYDoc());
     const n = saveAllSheets("manual");
-    showNotice(n ? (n > 1 ? `Enregistré (${n} feuilles).` : "Enregistré.") : "Déjà enregistré.", 2500);
+    showNotice(
+      n
+        ? n > 1
+          ? `Enregistré (${n} feuilles).`
+          : "Enregistré."
+        : before
+          ? `Déjà enregistré : aucune modification depuis ${formatCopyTime(before)}.`
+          : "Rien à enregistrer : le document est vide.",
+      3500,
+    );
     setUnsaved(false);
-  }, [saveAllSheets, showNotice]);
+  }, [saveAllSheets, showNotice, provider]);
   useEffect(() => {
     if (readOnly) return;
     const onKey = (e: KeyboardEvent) => {
@@ -1126,6 +1139,7 @@ Il sera supprimé pour tout le groupe.`,
                 people={people}
                 sync={sync}
                 saveState={saveState}
+                lastCopy={lastCopy}
                 onSave={onSave}
                 project={project}
                 canExport={Boolean(editor)}
@@ -1157,6 +1171,7 @@ Il sera supprimé pour tout le groupe.`,
             onGoToBlock={goToBlock}
             sync={sync}
             saveState={saveState}
+            lastCopy={lastCopy}
             onSave={onSave}
             canExport={Boolean(editor)}
             exporting={exporting}

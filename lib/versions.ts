@@ -84,6 +84,11 @@ export function versionSheet(v: Version): string {
   return v.sheet ?? MAIN_SHEET;
 }
 
+/** Heure de la copie la plus récente, toutes feuilles confondues (0 s'il n'y en a pas). */
+export function lastCopyTime(doc: Y.Doc): number {
+  return versionsArray(doc).toArray().reduce((max, v) => Math.max(max, v.t), 0);
+}
+
 export function lastVersion(doc: Y.Doc, sheet: string = MAIN_SHEET): Version | null {
   const list = versionsArray(doc).toArray().filter((v) => versionSheet(v) === sheet);
   return list.length ? list[list.length - 1] : null;

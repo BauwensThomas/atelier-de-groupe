@@ -163,7 +163,7 @@ export default function HelpPage() {
               Bouton <strong>« Enregistrer »</strong> en haut du panneau de droite (ou <strong>Ctrl+S</strong>) : il est{" "}
               <strong>rouge</strong> quand des modifications ne sont pas encore dans les versions, <strong>vert</strong>{" "}
               (« Enregistré ») quand tout est enregistré. Un clic fait une copie de <strong>toutes les feuilles
-              modifiées</strong>.
+              modifiées</strong>. L&apos;heure de la dernière copie est écrite juste en dessous.
             </li>
             <li>
               Copies <strong>automatiques</strong> en plus : toutes les 10 minutes, 3 minutes après ta dernière
