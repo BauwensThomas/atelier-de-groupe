@@ -61,6 +61,7 @@ let instanceCounter = 0;
 export type ColorMode = "color" | "black";
 let colorMode: ColorMode = "black";
 let authorColors = new Map<string, string>();
+let showAssignees = true;
 
 /** Images du document, téléchargées avant de construire le fichier (adresse vers données et taille). */
 export type LoadedImage = { data: ArrayBuffer; type: "jpg" | "png" | "gif"; width: number; height: number };
@@ -251,6 +252,18 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
           }),
         );
         out.push(...blocks(node.content, { ...ctx, block: kind }));
+        const assignee = kind === "question" && typeof node.attrs?.assignee === "string" ? node.attrs.assignee : "";
+        if (assignee && showAssignees) {
+          const color = colorMode === "color" ? (authorColors.get(assignee) ?? "#404040").replace("#", "") : BLACK;
+          out.push(
+            para({
+              ...blockStyle(kind),
+              alignment: AlignmentType.RIGHT,
+              spacing: { before: 30, after: 0, ...exact(270) },
+              children: [new TextRun({ text: assignee, bold: true, size: 18, color })],
+            }),
+          );
+        }
         break;
       }
 
@@ -346,7 +359,14 @@ function headingStyle(level: 1 | 2 | 3) {
 
 /** header : titre et auteurs en haut (feuille principale seulement, comme à l'écran). */
 /** legend : les auteurs (membres du groupe) et leur couleur, pour la ligne "Auteurs :". */
-export type DocMeta = { title: string; authors: string; header?: boolean; legend?: Array<{ name: string; color: string; label: string }> };
+export type DocMeta = {
+  title: string;
+  authors: string;
+  header?: boolean;
+  legend?: Array<{ name: string; color: string; label: string }>;
+  /** Afficher sous chaque question la personne qui doit répondre (oui par défaut). */
+  assignees?: boolean;
+};
 
 function titlePage(meta: DocMeta, newPage = false): Paragraph[] {
   // Mêmes hauteurs qu'à l'écran : titre (1,9 em, gras, lignes de 38 px), 8 px, ligne "Auteurs" (24 px),
@@ -401,6 +421,7 @@ export function buildDocxParts(
   loadedImages = images;
   authorColors = colors;
   colorMode = mode;
+  showAssignees = meta.assignees !== false;
   const title = meta.title || "Atelier de groupe";
   const children: Array<Paragraph | Table> = [];
   parts.forEach((part, k) => {

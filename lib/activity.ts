@@ -20,6 +20,7 @@ export type ActivityType =
   | "remove-question"
   | "remove-sujet"
   | "unlock"
+  | "assign"
   | "title"
   | "authors"
   | "version-save"
@@ -186,6 +187,8 @@ export function describeTransaction(tr: Transaction): Array<{ type: ActivityType
     } else if (json.stepType === "attr" && json.attr === "locked" && json.value === false) {
       const node = typeof json.pos === "number" ? doc.nodeAt(json.pos) : null;
       add("unlock", node?.attrs.kind === "sujet" ? "sujet" : "question");
+    } else if (json.stepType === "attr" && json.attr === "assignee") {
+      add("assign", typeof json.value === "string" ? json.value : "");
     }
   });
 
@@ -230,6 +233,8 @@ export function describeActivity(a: Activity): string {
       return "a supprimé une question";
     case "remove-sujet":
       return "a supprimé un sujet";
+    case "assign":
+      return a.detail ? `a choisi ${a.detail} pour répondre à une question` : "a retiré la personne qui répond à une question";
     case "unlock":
       return a.detail === "sujet" ? "a déverrouillé un sujet" : "a déverrouillé une question";
     case "title":

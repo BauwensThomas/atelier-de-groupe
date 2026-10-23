@@ -6,11 +6,16 @@ import { FileDown, Palette, Printer, Type } from "lucide-react";
 
 export type ColorMode = "color" | "black";
 
-/** Lance l'impression dans le mode choisi (la feuille d'impression lit la classe "print-black"). */
-export function printWithMode(mode: ColorMode) {
+/** Options d'export : afficher sous chaque question la personne qui doit répondre. */
+export type ExportOptions = { assignees: boolean };
+
+/** Lance l'impression dans le mode choisi (la feuille d'impression lit les classes "print-black"
+ *  et "print-no-assignee"). */
+export function printWithMode(mode: ColorMode, options: ExportOptions = { assignees: true }) {
   document.body.classList.toggle("print-black", mode === "black");
+  document.body.classList.toggle("print-no-assignee", !options.assignees);
   const cleanup = () => {
-    document.body.classList.remove("print-black");
+    document.body.classList.remove("print-black", "print-no-assignee");
     window.removeEventListener("afterprint", cleanup);
   };
   window.addEventListener("afterprint", cleanup);
@@ -21,7 +26,7 @@ export function printWithMode(mode: ColorMode) {
 type Props = {
   kind: "print" | "word";
   /** sheetIds : feuilles à inclure, dans l'ordre des onglets. */
-  onChoose: (mode: ColorMode, sheetIds: string[]) => void;
+  onChoose: (mode: ColorMode, sheetIds: string[], options: ExportOptions) => void;
   onClose: () => void;
   /** Feuilles du projet (dans l'ordre des onglets). */
   sheets?: Sheet[];
@@ -32,6 +37,7 @@ export function ExportChoiceDialog({ kind, onChoose, onClose, sheets = [] }: Pro
   // Feuilles à inclure : toutes au départ.
   const [selected, setSelected] = useState<Set<string>>(() => new Set(sheets.map((s) => s.id)));
   const all = sheets.length > 0 && selected.size === sheets.length;
+  const [assignees, setAssignees] = useState(true);
   const toggle = (id: string) =>
     setSelected((cur) => {
       const next = new Set(cur);
@@ -50,7 +56,7 @@ export function ExportChoiceDialog({ kind, onChoose, onClose, sheets = [] }: Pro
   function choose(mode: ColorMode) {
     if (sheets.length && !selected.size) return;
     onClose();
-    onChoose(mode, sheets.filter((s) => selected.has(s.id)).map((s) => s.id));
+    onChoose(mode, sheets.filter((s) => selected.has(s.id)).map((s) => s.id), { assignees });
   }
 
   const option =
@@ -93,6 +99,13 @@ export function ExportChoiceDialog({ kind, onChoose, onClose, sheets = [] }: Pro
             {!selected.size && <p className="mt-1 text-xs text-red-700">Choisis au moins une feuille.</p>}
           </fieldset>
         )}
+        <label className="mb-4 flex items-start gap-2 text-sm">
+          <input type="checkbox" checked={assignees} onChange={(e) => setAssignees(e.target.checked)} className="mt-0.5 h-4 w-4 accent-neutral-900" />
+          <span>
+            Afficher qui répond aux questions
+            <span className="block text-xs text-neutral-500">Le prénom choisi dans « Qui répond ? », en bas à droite de la question.</span>
+          </span>
+        </label>
         <p className="mb-4 text-sm text-neutral-600">Comment afficher le texte ?</p>
         <div className="flex flex-col gap-2">
           <button type="button" autoFocus disabled={sheets.length > 0 && !selected.size} onClick={() => choose("color")} className={`${option} disabled:opacity-40`}>

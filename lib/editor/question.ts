@@ -36,6 +36,8 @@ declare module "@tiptap/core" {
       toggleQuestion: (kind?: BlockKind) => ReturnType;
       setQuestionDate: (pos: number, date: string | null) => ReturnType;
       setQuestionLocked: (pos: number, locked: boolean) => ReturnType;
+      /** Personne qui doit répondre (null : personne). Possible même si la question est verrouillée. */
+      setQuestionAssignee: (pos: number, name: string | null) => ReturnType;
       deleteQuestion: (pos: number) => ReturnType;
     };
   }
@@ -107,6 +109,11 @@ export const Question = Node.create<QuestionOptions>({
         default: null,
         parseHTML: (el) => el.getAttribute("data-date"),
         renderHTML: (attrs) => (attrs.date ? { "data-date": attrs.date } : {}),
+      },
+      assignee: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-assignee") || null,
+        renderHTML: (attrs) => (attrs.assignee ? { "data-assignee": attrs.assignee } : {}),
       },
       locked: {
         default: true,
@@ -223,6 +230,15 @@ export const Question = Node.create<QuestionOptions>({
               tr.setSelection(TextSelection.near(tr.doc.resolve(end), -1));
             }
           }
+          return true;
+        },
+
+      setQuestionAssignee:
+        (pos, name) =>
+        ({ tr, dispatch }) => {
+          const node = tr.doc.nodeAt(pos);
+          if (!node || node.type.name !== "question") return false;
+          if (dispatch) tr.setNodeAttribute(pos, "assignee", name || null).setMeta(internalKey, true);
           return true;
         },
 

@@ -2,7 +2,9 @@
 
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
 import { Lock, LockOpen, Trash2 } from "lucide-react";
-import type { MouseEvent } from "react";
+import { useMemo, type MouseEvent } from "react";
+import * as Y from "yjs";
+import { useMembers } from "@/lib/members";
 import { useConfirm } from "./ConfirmDialog";
 
 /** "2026-09-30" devient "30 septembre 2026". */
@@ -12,12 +14,58 @@ export function formatDate(iso: unknown): string {
   return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Document partagé de l'éditeur (absent dans les aperçus et l'export). */
+function sharedDoc(editor: ReactNodeViewProps["editor"]): Y.Doc | null {
+  const ext = editor.extensionManager.extensions.find((e) => e.name === "collaboration");
+  const doc = (ext?.options as { document?: unknown } | undefined)?.document;
+  return doc instanceof Y.Doc ? doc : null;
+}
+
+/** "Qui répond ?" : liste des membres du groupe, chacun dans sa couleur. */
+function AssigneePicker({ editor, value, onChange }: { editor: ReactNodeViewProps["editor"]; value: string; onChange: (name: string) => void }) {
+  const doc = useMemo(() => sharedDoc(editor) ?? new Y.Doc(), [editor]);
+  const members = useMembers(doc);
+  // Un prénom par personne (plusieurs appareils), dans l'ordre d'arrivée ; la personne choisie reste
+  // dans la liste même si elle a été retirée des membres.
+  const people = useMemo(() => {
+    const byName = new Map<string, string>();
+    for (const m of members) if (m.name && !byName.has(m.name)) byName.set(m.name, m.color);
+    if (value && !byName.has(value)) byName.set(value, "#6b7280");
+    return [...byName].map(([name, color]) => ({ name, color }));
+  }, [members, value]);
+  const color = people.find((p) => p.name === value)?.color;
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label="Qui répond à cette question ?"
+      title="Qui répond à cette question ?"
+      data-person={value || undefined}
+      style={color ? { color } : undefined}
+      className={`question-assignee no-print max-w-[60%] cursor-pointer rounded border border-neutral-200 bg-white px-1 py-0 text-[12px] ${value ? "font-semibold" : "text-neutral-400"}`}
+    >
+      <option value="" style={{ color: "#737373" }}>
+        Qui répond ?
+      </option>
+      {people.map((p) => (
+        <option key={p.name} value={p.name} style={{ color: p.color, fontWeight: 600 }}>
+          {p.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function QuestionView({ node, editor, getPos }: ReactNodeViewProps) {
   const confirm = useConfirm();
   const locked = Boolean(node.attrs.locked);
   const isSubject = node.attrs.kind === "sujet";
   const label = isSubject ? "Sujet" : "Question";
   const date = typeof node.attrs.date === "string" ? node.attrs.date : "";
+  const assignee = typeof node.attrs.assignee === "string" ? node.attrs.assignee : "";
+  // Liste seulement dans le document partagé, quand on peut écrire ; ailleurs (professeur, versions,
+  // impression) : le prénom choisi.
+  const canAssign = editor.isEditable && Boolean(sharedDoc(editor));
 
   // Empêche le clic de déplacer le curseur de l'éditeur avant l'action.
   const keepSelection = (event: MouseEvent) => event.preventDefault();
@@ -32,6 +80,12 @@ export function QuestionView({ node, editor, getPos }: ReactNodeViewProps) {
     const pos = getPos();
     if (typeof pos !== "number") return;
     editor.commands.setQuestionDate(pos, value || null);
+  }
+
+  function changeAssignee(name: string) {
+    const pos = getPos();
+    if (typeof pos !== "number") return;
+    editor.commands.setQuestionAssignee(pos, name || null);
   }
 
   async function remove() {
@@ -96,6 +150,16 @@ export function QuestionView({ node, editor, getPos }: ReactNodeViewProps) {
         </div>
       </div>
       <NodeViewContent className="question-content" />
+      {!isSubject && (canAssign || assignee) && (
+        <div className="question-footer" contentEditable={false}>
+          {canAssign && <AssigneePicker editor={editor} value={assignee} onChange={changeAssignee} />}
+          {assignee && (
+            <span className={`question-assignee font-semibold${canAssign ? " print-only" : ""}`} data-person={assignee}>
+              {assignee}
+            </span>
+          )}
+        </div>
+      )}
     </NodeViewWrapper>
   );
 }

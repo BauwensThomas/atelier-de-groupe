@@ -147,6 +147,11 @@ export default function HelpPage() {
             <li>
               Écris ta réponse <strong>sous</strong> le bloc.
             </li>
+            <li>
+              <strong>« Qui répond ? »</strong>, en bas à droite d&apos;une question : choisis la personne qui doit y
+              répondre. Son prénom s&apos;affiche dans sa couleur (inutile de l&apos;écrire sous la question). Ça marche
+              même quand la question est verrouillée.
+            </li>
           </Points>
         </Section>
 
@@ -198,6 +203,10 @@ export default function HelpPage() {
               Pour les deux, tu choisis : <strong>« En couleur »</strong> (chaque texte dans la couleur de son auteur,
               pour voir qui a écrit quoi) ou <strong>« Tout en noir »</strong> (version propre pour le rendu final). Le
               texte barré n&apos;apparaît jamais.
+            </li>
+            <li>
+              Case <strong>« Afficher qui répond aux questions »</strong> : décoche-la pour un rendu sans les prénoms
+              choisis dans « Qui répond ? ».
             </li>
             <li>
               Tu choisis aussi les <strong>feuilles</strong> à inclure (toutes au départ) : un seul fichier, chaque feuille

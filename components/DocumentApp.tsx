@@ -68,7 +68,7 @@ import {
 import { VersionsDialog } from "./VersionsDialog";
 import { IdleGuard } from "./IdleGuard";
 import { useConfirm } from "./ConfirmDialog";
-import { ExportChoiceDialog, printWithMode, type ColorMode } from "./PrintDialog";
+import { ExportChoiceDialog, printWithMode, type ColorMode, type ExportOptions } from "./PrintDialog";
 import { CollapsedPanel } from "./CollapsedPanel";
 import { Editor } from "./Editor";
 import { IdentityDialog } from "./IdentityDialog";
@@ -338,7 +338,10 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   const authorStyle = useMemo(
     () =>
       [...authorColors]
-        .map(([name, color]) => `body:not(.print-black) .tiptap span[data-author="${CSS.escape(name)}"]{color:${color}!important}`)
+        .map(
+          ([name, color]) =>
+            `body:not(.print-black) .tiptap span[data-author="${CSS.escape(name)}"],body:not(.print-black) .question-assignee[data-person="${CSS.escape(name)}"]{color:${color}!important}`,
+        )
         .join("\n"),
     [authorColors],
   );
@@ -900,18 +903,18 @@ Il sera supprimé pour tout le groupe.`,
 
   // Export de plusieurs feuilles : elles sont préparées hors de l'écran (SheetsRender), puis imprimées ou
   // assemblées en un seul fichier Word.
-  const [exportJob, setExportJob] = useState<{ kind: "word" | "print"; mode: ColorMode; sheets: Sheet[] } | null>(null);
-  function startExport(kind: "word" | "print", mode: ColorMode, ids: string[]) {
+  const [exportJob, setExportJob] = useState<{ kind: "word" | "print"; mode: ColorMode; sheets: Sheet[]; options: ExportOptions } | null>(null);
+  function startExport(kind: "word" | "print", mode: ColorMode, ids: string[], options: ExportOptions) {
     const chosen = sheets.filter((s) => ids.includes(s.id));
     // Seulement la feuille affichée : comme avant (document affiché, sauts de page de l'écran).
     if (chosen.length === 1 && chosen[0].id === sheet.id) {
-      if (kind === "word") void onExport(mode);
-      else printWithMode(mode);
+      if (kind === "word") void onExport(mode, options);
+      else printWithMode(mode, options);
       return;
     }
     if (!chosen.length) return;
     showNotice(kind === "word" ? "Préparation du fichier Word…" : "Préparation de l'impression…");
-    setExportJob({ kind, mode, sheets: chosen });
+    setExportJob({ kind, mode, sheets: chosen, options });
   }
   const finishExport = useCallback(
     async (rendered: RenderedSheet[]) => {
@@ -926,7 +929,7 @@ Il sera supprimé pour tout le groupe.`,
           setExportJob(null);
         };
         window.addEventListener("afterprint", cleanup);
-        printWithMode(job.mode);
+        printWithMode(job.mode, job.options);
         return;
       }
       setExporting(true);
@@ -939,6 +942,7 @@ Il sera supprimé pour tout le groupe.`,
             title: doc.getText("title").toString().trim() || project.name,
             authors: "",
             legend,
+            assignees: job.options.assignees,
           },
           job.mode,
           authorColors,
@@ -952,7 +956,7 @@ Il sera supprimé pour tout le groupe.`,
     [exportJob, showNotice, provider, project.name, legend, authorColors, confirm],
   );
 
-  async function onExport(mode: ColorMode) {
+  async function onExport(mode: ColorMode, options: ExportOptions) {
     if (!editor) return;
     setExporting(true);
     try {
@@ -965,6 +969,7 @@ Il sera supprimé pour tout le groupe.`,
           authors: doc.getText("authors").toString().trim(),
           header: sheet.id === MAIN_SHEET,
           legend,
+          assignees: options.assignees,
         },
         mode,
         pageBreakIndices(editor.state),
@@ -1291,7 +1296,7 @@ Il sera supprimé pour tout le groupe.`,
       {exportChoice && (
         <ExportChoiceDialog
           kind={exportChoice}
-          onChoose={(mode, ids) => startExport(exportChoice, mode, ids)}
+          onChoose={(mode, ids, options) => startExport(exportChoice, mode, ids, options)}
           sheets={sheets}
           onClose={() => setExportChoice(null)}
         />
