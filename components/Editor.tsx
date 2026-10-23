@@ -12,7 +12,7 @@ import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import type { LiveblocksYjsProvider } from "@liveblocks/yjs";
 import type { Identity } from "@/lib/identity";
 import { AuthorMark } from "@/lib/editor/author-mark";
-import { Question } from "@/lib/editor/question";
+import { Question, type BlockedReason } from "@/lib/editor/question";
 import { SafeDelete } from "@/lib/editor/safe-delete";
 import { DeletedMark } from "@/lib/editor/track-deletions";
 import { Pagination } from "@/lib/editor/pagination";
@@ -28,7 +28,7 @@ type Props = {
   provider: LiveblocksYjsProvider;
   identity: Identity | null;
   identityRef: RefObject<Identity | null>;
-  onBlocked: () => void;
+  onBlocked: (reason: BlockedReason) => void;
   onReady: (editor: TiptapEditor | null) => void;
   onHeaderEdited: (field: "title" | "authors") => void;
   /** Professeur : lecture seule (il peut seulement commenter). */
@@ -139,7 +139,7 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
       }),
       AuthorMark.configure({ getUser: () => identityRef.current }),
       DeletedMark.configure({ getUser: () => identityRef.current }),
-      Question.configure({ onBlocked: () => onBlockedRef.current() }),
+      Question.configure({ onBlocked: (reason) => onBlockedRef.current(reason) }),
       SafeDelete,
       Pagination,
       Search,

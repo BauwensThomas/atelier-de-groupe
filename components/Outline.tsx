@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/core";
@@ -12,10 +13,10 @@ import { FoldSection } from "./FoldSection";
 // Sommaire de toutes les feuilles : leurs sujets et leurs questions. Un clic emmène au bloc, en changeant de
 // feuille si besoin.
 
-type Entry = { kind: "sujet" | "question"; tag: string; text: string; index: number; nested: boolean };
+type Entry = { kind: "sujet" | "question"; tag: string; text: string; index: number; nested: boolean; validated: boolean };
 
 /** Sujets et questions, dans l'ordre. index : rang du bloc parmi les questions et sujets de la feuille. */
-function collect(blocks: Array<{ kind: "sujet" | "question"; text: string }>): Entry[] {
+function collect(blocks: Array<{ kind: "sujet" | "question"; text: string; validated?: boolean }>): Entry[] {
   const out: Entry[] = [];
   let underSubject = false;
   let number = 0; // les questions sont numérotées, en repartant de 1 après chaque sujet
@@ -26,7 +27,7 @@ function collect(blocks: Array<{ kind: "sujet" | "question"; text: string }>): E
     } else {
       number++;
     }
-    out.push({ kind: b.kind, tag: b.kind === "sujet" ? "Sujet" : `Q${number}`, text: b.text, index, nested: b.kind === "question" && underSubject });
+    out.push({ kind: b.kind, tag: b.kind === "sujet" ? "Sujet" : `Q${number}`, text: b.text, index, nested: b.kind === "question" && underSubject, validated: b.kind === "question" && Boolean(b.validated) });
   });
   return out;
 }
@@ -48,10 +49,10 @@ function firstLine(block: PMNode): string {
 }
 
 function fromEditor(editor: Editor): Entry[] {
-  const blocks: Array<{ kind: "sujet" | "question"; text: string }> = [];
+  const blocks: Array<{ kind: "sujet" | "question"; text: string; validated?: boolean }> = [];
   editor.state.doc.descendants((node) => {
     if (node.type.name !== "question") return true;
-    blocks.push({ kind: node.attrs.kind === "sujet" ? "sujet" : "question", text: firstLine(node) });
+    blocks.push({ kind: node.attrs.kind === "sujet" ? "sujet" : "question", text: firstLine(node), validated: Boolean(node.attrs.validated) });
     return false;
   });
   return collect(blocks);
@@ -59,7 +60,7 @@ function fromEditor(editor: Editor): Entry[] {
 
 /** Même chose depuis le texte enregistré d'une feuille qui n'est pas affichée. */
 function fromJson(doc: JSONContent): Entry[] {
-  const blocks: Array<{ kind: "sujet" | "question"; text: string }> = [];
+  const blocks: Array<{ kind: "sujet" | "question"; text: string; validated?: boolean }> = [];
   const lineOf = (node: JSONContent): string => {
     if (node.content?.some((c) => c.type === "text")) {
       return (node.content ?? [])
@@ -76,7 +77,7 @@ function fromJson(doc: JSONContent): Entry[] {
   };
   const walk = (node: JSONContent) => {
     if (node.type === "question") {
-      blocks.push({ kind: node.attrs?.kind === "sujet" ? "sujet" : "question", text: lineOf(node) });
+      blocks.push({ kind: node.attrs?.kind === "sujet" ? "sujet" : "question", text: lineOf(node), validated: Boolean(node.attrs?.validated) });
       return;
     }
     node.content?.forEach(walk);
@@ -172,6 +173,7 @@ export function Outline({ editor, doc, sheets = [], current, onGo }: Props) {
                             {item.tag}
                           </span>
                           <span className={`truncate ${item.text ? "" : "text-neutral-400 italic"}`}>{item.text || "vide"}</span>
+                          {item.validated && <Check size={12} strokeWidth={3} className="ml-auto shrink-0 self-center text-green-600" aria-label="Réponse validée" />}
                         </button>
                       </li>
                     ))}

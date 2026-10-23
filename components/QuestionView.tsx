@@ -1,7 +1,7 @@
 "use client";
 
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
-import { Lock, LockOpen, Trash2 } from "lucide-react";
+import { Check, Lock, LockOpen, Trash2 } from "lucide-react";
 import { useMemo, type MouseEvent } from "react";
 import * as Y from "yjs";
 import { useMembers } from "@/lib/members";
@@ -66,6 +66,7 @@ export function QuestionView({ node, editor, getPos }: ReactNodeViewProps) {
   // Liste seulement dans le document partagé, quand on peut écrire ; ailleurs (professeur, versions,
   // impression) : le prénom choisi.
   const canAssign = editor.isEditable && Boolean(sharedDoc(editor));
+  const validated = Boolean(node.attrs.validated);
 
   // Empêche le clic de déplacer le curseur de l'éditeur avant l'action.
   const keepSelection = (event: MouseEvent) => event.preventDefault();
@@ -86,6 +87,12 @@ export function QuestionView({ node, editor, getPos }: ReactNodeViewProps) {
     const pos = getPos();
     if (typeof pos !== "number") return;
     editor.commands.setQuestionAssignee(pos, name || null);
+  }
+
+  function toggleValidated() {
+    const pos = getPos();
+    if (typeof pos !== "number") return;
+    editor.commands.setQuestionValidated(pos, !validated);
   }
 
   async function remove() {
@@ -150,9 +157,31 @@ export function QuestionView({ node, editor, getPos }: ReactNodeViewProps) {
         </div>
       </div>
       <NodeViewContent className="question-content" />
-      {!isSubject && (canAssign || assignee) && (
+      {!isSubject && (canAssign || assignee || validated) && (
         <div className="question-footer" contentEditable={false}>
           {canAssign && <AssigneePicker editor={editor} value={assignee} onChange={changeAssignee} />}
+          {(canAssign || validated) && (
+            <button
+              type="button"
+              onMouseDown={keepSelection}
+              onClick={canAssign ? toggleValidated : undefined}
+              disabled={!canAssign}
+              aria-pressed={validated}
+              title={
+                validated
+                  ? canAssign
+                    ? "Réponse validée (texte verrouillé). Clique pour retirer la validation."
+                    : "Réponse validée"
+                  : "Valider la réponse (le texte sera verrouillé)"
+              }
+              aria-label={validated ? "Retirer la validation de la réponse" : "Valider la réponse"}
+              className={`question-validate no-print ml-1.5 flex h-[20px] w-[22px] items-center justify-center rounded border ${
+                validated ? "border-green-600 bg-green-600 text-white" : "border-neutral-300 bg-white text-neutral-300 hover:border-green-600 hover:text-green-600"
+              } disabled:cursor-default`}
+            >
+              <Check size={14} strokeWidth={3} aria-hidden />
+            </button>
+          )}
           {assignee && (
             <span className={`question-assignee font-semibold${canAssign ? " print-only" : ""}`} data-person={assignee}>
               {assignee}

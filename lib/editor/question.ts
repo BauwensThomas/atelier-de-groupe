@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { Plugin, PluginKey, TextSelection, type EditorState } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import {
   AddMarkStep,
   AddNodeMarkStep,
@@ -24,9 +25,12 @@ export function today(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** Pourquoi une modification est refusée : question verrouillée, ou réponse validée. */
+export type BlockedReason = "question" | "validated";
+
 type QuestionOptions = {
-  /** Appelé quand une modification est refusée parce que la question est verrouillée. */
-  onBlocked: () => void;
+  /** Appelé quand une modification est refusée. */
+  onBlocked: (reason: BlockedReason) => void;
 };
 
 declare module "@tiptap/core" {
@@ -38,6 +42,8 @@ declare module "@tiptap/core" {
       setQuestionLocked: (pos: number, locked: boolean) => ReturnType;
       /** Personne qui doit répondre (null : personne). Possible même si la question est verrouillée. */
       setQuestionAssignee: (pos: number, name: string | null) => ReturnType;
+      /** Réponse validée (V vert) : le texte de la réponse, sous la question, est verrouillé. */
+      setQuestionValidated: (pos: number, validated: boolean) => ReturnType;
       deleteQuestion: (pos: number) => ReturnType;
     };
   }
@@ -68,6 +74,36 @@ function lockedRanges(state: EditorState): Array<[number, number]> {
     return false;
   });
   return ranges;
+}
+
+/** Réponses validées : de la fin de la question validée jusqu'au sujet ou à la question suivante
+ *  (ou la fin de la feuille). Seulement les questions posées directement dans la page. */
+export function validatedRanges(state: EditorState): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  let open: number | null = null;
+  state.doc.forEach((node, offset) => {
+    if (node.type.name !== "question") return;
+    if (open !== null && offset > open) ranges.push([open, offset]);
+    open = node.attrs.kind !== "sujet" && node.attrs.validated ? offset + node.nodeSize : null;
+  });
+  if (open !== null && state.doc.content.size > open) ranges.push([open, state.doc.content.size]);
+  return ranges;
+}
+
+/** Vrai si la transaction modifie une des plages (dans le document d'avant). */
+function touchesRanges(tr: Transaction, ranges: Array<[number, number]>): boolean {
+  if (!ranges.length) return false;
+  for (let i = 0; i < tr.steps.length; i++) {
+    const before = tr.mapping.slice(0, i);
+    const current = ranges.map(([a, b]) => [before.map(a, 1), before.map(b, -1)] as const);
+    for (const [from, to] of touchedRanges(tr.steps[i])) {
+      for (const [start, end] of current) {
+        const hit = from === to ? from > start && from < end : from < end && to > start;
+        if (hit) return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Vrai si la transaction modifie (ou supprime) une question verrouillée. */
@@ -114,6 +150,11 @@ export const Question = Node.create<QuestionOptions>({
         default: null,
         parseHTML: (el) => el.getAttribute("data-assignee") || null,
         renderHTML: (attrs) => (attrs.assignee ? { "data-assignee": attrs.assignee } : {}),
+      },
+      validated: {
+        default: false,
+        parseHTML: (el) => el.getAttribute("data-validated") === "true",
+        renderHTML: (attrs) => (attrs.validated ? { "data-validated": "true" } : {}),
       },
       locked: {
         default: true,
@@ -242,6 +283,15 @@ export const Question = Node.create<QuestionOptions>({
           return true;
         },
 
+      setQuestionValidated:
+        (pos, validated) =>
+        ({ tr, dispatch }) => {
+          const node = tr.doc.nodeAt(pos);
+          if (!node || node.type.name !== "question" || node.attrs.kind === "sujet") return false;
+          if (dispatch) tr.setNodeAttribute(pos, "validated", validated).setMeta(internalKey, true);
+          return true;
+        },
+
       setQuestionDate:
         (pos, date) =>
         ({ tr, dispatch }) => {
@@ -270,8 +320,30 @@ export const Question = Node.create<QuestionOptions>({
   },
 
   addProseMirrorPlugins() {
-    const onBlocked = () => this.options.onBlocked();
+    const onBlocked = (reason: BlockedReason) => this.options.onBlocked(reason);
     return [
+      // Réponse validée : texte verrouillé, avec un trait vert à gauche (écran seulement).
+      new Plugin({
+        key: new PluginKey("answer-validated"),
+        filterTransaction(tr, state) {
+          if (!tr.docChanged || isRemote(tr) || tr.getMeta(internalKey)) return true;
+          if (!touchesRanges(tr, validatedRanges(state))) return true;
+          queueMicrotask(() => onBlocked("validated"));
+          return false;
+        },
+        props: {
+          decorations(state) {
+            const decorations: Decoration[] = [];
+            for (const [from, to] of validatedRanges(state)) {
+              state.doc.nodesBetween(from, to, (node, pos) => {
+                if (pos >= from && pos + node.nodeSize <= to) decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: "answer-validated" }));
+                return false;
+              });
+            }
+            return DecorationSet.create(state.doc, decorations);
+          },
+        },
+      }),
       new Plugin({
         key: new PluginKey("question-lock"),
 
@@ -279,7 +351,7 @@ export const Question = Node.create<QuestionOptions>({
         filterTransaction(tr, state) {
           if (!tr.docChanged || isRemote(tr) || tr.getMeta(internalKey)) return true;
           if (!touchesLockedQuestion(tr, state)) return true;
-          queueMicrotask(onBlocked);
+          queueMicrotask(() => onBlocked("question"));
           return false;
         },
 

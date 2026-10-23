@@ -252,6 +252,17 @@ body {
   user-select: none;
 }
 
+/* Réponse validée (V vert) : trait vert à gauche, texte verrouillé */
+.tiptap .answer-validated {
+  box-shadow: -12px 0 0 -9px #16a34a;
+}
+
+@media print {
+  .tiptap .answer-validated {
+    box-shadow: none;
+  }
+}
+
 /* "Qui répond ?" en bas à droite de la question */
 .question-footer {
   display: flex;

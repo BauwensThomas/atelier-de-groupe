@@ -38,6 +38,7 @@ import {
   type Author,
 } from "@/lib/comments";
 import { commentsKey } from "@/lib/editor/comments";
+import type { BlockedReason } from "@/lib/editor/question";
 import { pageBreakIndices } from "@/lib/editor/pagination";
 import { CommentComposer, ThreadDialog } from "./Comments";
 import { uploadImage } from "@/lib/images";
@@ -368,12 +369,12 @@ export function DocumentApp({ identity, identityRef, onIdentityChange, project }
   );
 
   // Message discret quand on essaie de modifier une question verrouillée.
-  const [blockedVisible, setBlockedVisible] = useState(false);
+  const [blockedVisible, setBlockedVisible] = useState<BlockedReason | null>(null);
   const blockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onBlocked = useCallback(() => {
-    setBlockedVisible(true);
+  const onBlocked = useCallback((reason: BlockedReason) => {
+    setBlockedVisible(reason);
     if (blockedTimer.current) clearTimeout(blockedTimer.current);
-    blockedTimer.current = setTimeout(() => setBlockedVisible(false), 1800);
+    blockedTimer.current = setTimeout(() => setBlockedVisible(null), reason === "validated" ? 2600 : 1800);
   }, []);
 
   const [editor, setEditor] = useState<TiptapEditor | null>(null);
@@ -1289,7 +1290,7 @@ Il sera supprimé pour tout le groupe.`,
           className="no-print fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-lg bg-neutral-900 px-3 py-2 text-sm text-white shadow-lg"
         >
           <Lock size={14} aria-hidden />
-          Question verrouillée
+          {blockedVisible === "validated" ? "Réponse validée : clique sur le V vert pour la modifier" : "Question verrouillée"}
         </div>
       )}
 

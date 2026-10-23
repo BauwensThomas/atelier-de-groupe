@@ -152,6 +152,11 @@ export default function HelpPage() {
               répondre. Son prénom s&apos;affiche dans sa couleur (inutile de l&apos;écrire sous la question). Ça marche
               même quand la question est verrouillée.
             </li>
+            <li>
+              Le <strong>V</strong> à côté : clique dessus quand la réponse est bonne. Il devient <strong>vert</strong>, un
+              trait vert marque la réponse et son texte est <strong>verrouillé</strong> (jusqu&apos;à la question
+              suivante). Reclique sur le V pour la modifier. Le sommaire montre un V vert devant les questions validées.
+            </li>
           </Points>
         </Section>
 
