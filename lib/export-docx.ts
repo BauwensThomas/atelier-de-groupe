@@ -14,6 +14,7 @@ import {
   ShadingType,
   Table,
   TableCell,
+  TableLayoutType,
   TableRow,
   TextRun,
   WidthType,
@@ -172,12 +173,20 @@ const HEADINGS = {
   3: HeadingLevel.HEADING_3,
 } as const;
 
+/** Alignement choisi dans le document (gauche par défaut). */
+function alignment(node: JSONContent): Partial<IParagraphOptions> {
+  const value = node.attrs?.textAlign;
+  if (value === "center") return { alignment: AlignmentType.CENTER };
+  if (value === "right") return { alignment: AlignmentType.RIGHT };
+  return {};
+}
+
 function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph | Table> {
   const out: Array<Paragraph | Table> = [];
   for (const node of nodes ?? []) {
     switch (node.type) {
       case "paragraph":
-        out.push(para({ ...paragraphOptions(ctx, false), children: runs(node, ctx) }));
+        out.push(para({ ...paragraphOptions(ctx, false), ...alignment(node), children: runs(node, ctx) }));
         break;
 
       case "heading": {
@@ -185,6 +194,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
         out.push(
           para({
             ...paragraphOptions(ctx, false),
+            ...alignment(node),
             heading: HEADINGS[level] ?? HeadingLevel.HEADING_3,
             spacing: { before: 0, after: 0, ...exact(HEADING[level]?.line ?? LINE) },
             children: runs(node, ctx),
@@ -208,6 +218,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
               out.push(
                 para({
                   ...paragraphOptions(listCtx, index === 0),
+                  ...alignment(child),
                   children: runs(child, listCtx),
                 }),
               );
@@ -279,23 +290,54 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
   return out;
 }
 
+// Largeur du texte de la page (A4 moins 2 x 20 mm), en vingtièmes de point ; 1 pixel de l'écran = 15.
+const PAGE_TEXT_WIDTH = 9638;
+const PX = 15;
+const CELL_MIN_WIDTH = 40 * PX;
+
+/** Largeur de chaque colonne, comme à l'écran : colonnes réglées à leur largeur, les autres se partagent le reste. */
+function columnWidths(node: JSONContent): number[] {
+  const widths: Array<number | null> = [];
+  for (const cell of node.content?.[0]?.content ?? []) {
+    const span = Number(cell.attrs?.colspan ?? 1) || 1;
+    const set = Array.isArray(cell.attrs?.colwidth) ? (cell.attrs.colwidth as unknown[]) : [];
+    for (let i = 0; i < span; i++) widths.push(typeof set[i] === "number" && set[i] ? Math.round((set[i] as number) * PX) : null);
+  }
+  const free = widths.filter((w) => w === null).length;
+  const used = widths.reduce<number>((sum, w) => sum + (w ?? 0), 0);
+  const share = free ? Math.max(CELL_MIN_WIDTH, Math.floor((PAGE_TEXT_WIDTH - used) / free)) : 0;
+  return widths.map((w) => w ?? share);
+}
+
 function table(node: JSONContent, ctx: Context): Table {
+  const columns = columnWidths(node);
   const rows = (node.content ?? []).map(
-    (row) =>
-      new TableRow({
+    (row) => {
+      let col = 0;
+      return new TableRow({
         children: (row.content ?? []).map((cell) => {
           const header = cell.type === "tableHeader";
+          const span = Number(cell.attrs?.colspan ?? 1) || 1;
+          const width = columns.slice(col, col + span).reduce((sum, w) => sum + w, 0);
+          col += span;
           const children = blocks(cell.content, { ...ctx, listLevel: -1, inHeader: header });
           return new TableCell({
-            columnSpan: cell.attrs?.colspan ?? 1,
+            columnSpan: span,
             rowSpan: cell.attrs?.rowspan ?? 1,
+            width: width ? { size: width, type: WidthType.DXA } : undefined,
             shading: header ? { type: ShadingType.CLEAR, color: "auto", fill: "F2F2F2" } : undefined,
             children: children.length ? children : [new Paragraph({ children: [] })],
           });
         }),
-      }),
+      });
+    },
   );
-  return new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } });
+  return new Table({
+    rows,
+    columnWidths: columns,
+    layout: TableLayoutType.FIXED,
+    width: { size: columns.reduce((sum, w) => sum + w, 0), type: WidthType.DXA },
+  });
 }
 
 function headingStyle(level: 1 | 2 | 3) {

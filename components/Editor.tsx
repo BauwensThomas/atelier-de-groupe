@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode, type RefO
 import { EditorContent, useEditor, type Editor as TiptapEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TableKit } from "@tiptap/extension-table";
+import { Align } from "@/lib/editor/align";
+import { TABLE_CELL_MIN_WIDTH, TableResize } from "@/lib/editor/table-resize";
 import { Placeholder } from "@tiptap/extensions";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
@@ -124,7 +126,9 @@ export function Editor({ provider, identity, identityRef, onBlocked, onReady, on
         underline: false,
         link: false,
       }),
-      TableKit.configure({ table: { resizable: false } }),
+      TableKit.configure({ table: { resizable: false, cellMinWidth: TABLE_CELL_MIN_WIDTH } }),
+      TableResize,
+      Align,
       // showOnlyCurrent: false : toutes les lignes vides portent la classe "is-empty" (utile à l'impression).
       // Le texte d'aide ne s'affiche toujours que dans un document vide (voir globals.css).
       Placeholder.configure({ placeholder: "Colle ici les questions, puis écris vos réponses.", showOnlyCurrent: false, showOnlyWhenEditable: false }),

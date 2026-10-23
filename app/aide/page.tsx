@@ -104,7 +104,14 @@ export default function HelpPage() {
               En haut du document : le <strong>« Titre du projet »</strong>, puis <strong>« Auteurs : »</strong>, rempli tout seul avec
               les membres du groupe, chacun dans sa couleur. Si tu changes de couleur, ton texte change aussi.
             </li>
-            <li>La barre d&apos;outils permet de faire des titres, du gras, de l&apos;italique, des listes et des tableaux.</li>
+            <li>
+              La barre d&apos;outils permet de faire des titres, du gras, de l&apos;italique, des listes et des tableaux, et
+              d&apos;<strong>aligner le texte</strong> à gauche, au centre ou à droite (aussi dans une case de tableau).
+            </li>
+            <li>
+              Tableau : pour <strong>élargir une colonne</strong>, glisse la bordure à sa droite (un trait bleu apparaît).
+              La dernière colonne prend la place qui reste, le tableau garde la largeur de la page.
+            </li>
             <li>
               Les boutons <strong>−</strong> et <strong>+</strong>, au bout de la barre d&apos;outils, zooment la page. Clique sur
               le pourcentage pour revenir à 100 %.

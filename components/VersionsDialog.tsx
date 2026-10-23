@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TableKit } from "@tiptap/extension-table";
+import { Align } from "@/lib/editor/align";
 import type { JSONContent } from "@tiptap/core";
 import { History, RotateCcw, Save, X } from "lucide-react";
 import { AuthorMark } from "@/lib/editor/author-mark";
@@ -63,7 +64,8 @@ function Preview({ version }: { version: Version }) {
     content,
     extensions: [
       StarterKit.configure({ undoRedo: false, heading: { levels: [1, 2, 3] }, link: false }),
-      TableKit.configure({ table: { resizable: false } }),
+      TableKit.configure({ table: { resizable: false, cellMinWidth: 40 } }),
+      Align,
       AuthorMark,
       DeletedMark,
       Question,

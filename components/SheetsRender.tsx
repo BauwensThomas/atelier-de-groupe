@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TableKit } from "@tiptap/extension-table";
+import { Align } from "@/lib/editor/align";
 import { Placeholder } from "@tiptap/extensions";
 import type { JSONContent } from "@tiptap/core";
 import type * as Y from "yjs";
@@ -28,7 +29,8 @@ function SheetEditor({ json, onEditor }: { json: JSONContent; onEditor: (editor:
     content: json,
     extensions: [
       StarterKit.configure({ undoRedo: false, heading: { levels: [1, 2, 3] }, code: false, codeBlock: false, blockquote: false, horizontalRule: false, strike: false, underline: false, link: false }),
-      TableKit.configure({ table: { resizable: false } }),
+      TableKit.configure({ table: { resizable: false, cellMinWidth: 40 } }),
+      Align,
       // Lignes vides marquées (les dernières ne sont pas imprimées, comme pour le document affiché).
       Placeholder.configure({ placeholder: "", showOnlyCurrent: false, showOnlyWhenEditable: false }),
       AuthorMark,

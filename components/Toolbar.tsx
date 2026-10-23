@@ -2,6 +2,9 @@
 
 import { useEditorState, type Editor } from "@tiptap/react";
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   BookOpen,
   Bold,
   Columns3,
@@ -87,6 +90,7 @@ export function Toolbar({ editor, onComment, onUploadImage, readOnly = false, zo
       bullet: e.isActive("bulletList"),
       ordered: e.isActive("orderedList"),
       inTable: e.isActive("table"),
+      align: e.isActive({ textAlign: "center" }) ? "center" : e.isActive({ textAlign: "right" }) ? "right" : "left",
       inQuestion: e.isActive("question"),
       // Image sélectionnée (un clic dessus) et sa taille (null : taille d'origine).
       imageSelected: e.isActive("image"),
@@ -144,6 +148,16 @@ export function Toolbar({ editor, onComment, onUploadImage, readOnly = false, zo
       </ToolButton>
       <ToolButton label="Italique" active={state.italic} disabled={off} onClick={() => chain().toggleItalic().run()}>
         <Italic size={16} aria-hidden />
+      </ToolButton>
+      <Separator />
+      <ToolButton label="Aligner à gauche" active={state.align === "left"} disabled={off} onClick={() => chain().setTextAlign("left").run()}>
+        <AlignLeft size={16} aria-hidden />
+      </ToolButton>
+      <ToolButton label="Centrer" active={state.align === "center"} disabled={off} onClick={() => chain().setTextAlign("center").run()}>
+        <AlignCenter size={16} aria-hidden />
+      </ToolButton>
+      <ToolButton label="Aligner à droite" active={state.align === "right"} disabled={off} onClick={() => chain().setTextAlign("right").run()}>
+        <AlignRight size={16} aria-hidden />
       </ToolButton>
       <Separator />
       <ToolButton label="Liste à puces" active={state.bullet} disabled={off} onClick={() => chain().toggleBulletList().run()}>

@@ -155,6 +155,22 @@ body {
   overflow-x: auto;
 }
 
+/* Largeur des colonnes : trait bleu sur la bordure attrapée */
+.tiptap .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: -1px;
+  width: 4px;
+  background: #2563eb;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tiptap.resize-cursor {
+  cursor: col-resize;
+}
+
 /* Texte coloré par auteur */
 .tiptap span[data-author] {
   cursor: text;
