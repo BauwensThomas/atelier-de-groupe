@@ -37,6 +37,10 @@ const HEADING = {
 } as const;
 const QUESTION_MARGIN = 230; // 1 em au-dessus et au-dessous d'un bloc question
 const IMAGE_MARGIN = 180; // 0,75 rem
+// Tableau : 0,8 em au-dessus et au-dessous. À l'écran, le tableau est dans un cadre à part : ses marges
+// s'ajoutent à celles des blocs voisins au lieu de se confondre avec elles.
+const TABLE_MARGIN = 184;
+const TABLE_BORDER = { style: BorderStyle.SINGLE, size: 6, color: "D4D4D4" };
 const MM = 56.7; // vingtièmes de point par millimètre
 const exact = (line: number) => ({ line, lineRule: LineRuleType.EXACT });
 
@@ -262,7 +266,7 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
       }
 
       case "table":
-        out.push(table(node, ctx));
+        out.push(...table(node, ctx));
         break;
 
       case "image": {
@@ -316,7 +320,22 @@ function columnWidths(node: JSONContent): number[] {
   return widths.map((w) => w ?? share);
 }
 
-function table(node: JSONContent, ctx: Context): Table {
+function table(node: JSONContent, ctx: Context): Array<Paragraph | Table> {
+  // L'espace au-dessus (et le saut de page) vont avant le tableau, pas dans sa première case.
+  const before = pendingBefore ?? 0;
+  const pageBreak = pendingBreak;
+  pendingBefore = null;
+  pendingBreak = false;
+  const spacer =
+    before > 0 || pageBreak
+      ? [
+          new Paragraph({
+            pageBreakBefore: pageBreak,
+            spacing: { before: 0, after: 0, line: Math.max(before, 20), lineRule: LineRuleType.EXACT },
+            children: [new TextRun({ text: "", size: 2 })],
+          }),
+        ]
+      : [];
   const columns = columnWidths(node);
   const rows = (node.content ?? []).map(
     (row) => {
@@ -332,19 +351,33 @@ function table(node: JSONContent, ctx: Context): Table {
             columnSpan: span,
             rowSpan: cell.attrs?.rowspan ?? 1,
             width: width ? { size: width, type: WidthType.DXA } : undefined,
-            shading: header ? { type: ShadingType.CLEAR, color: "auto", fill: "F2F2F2" } : undefined,
+            // Comme à l'écran : 6 px en haut et en bas, 8 px sur les côtés.
+            margins: { top: 90, bottom: 90, left: 120, right: 120 },
+            shading: header ? { type: ShadingType.CLEAR, color: "auto", fill: "F5F5F5" } : undefined,
             children: children.length ? children : [new Paragraph({ children: [] })],
           });
         }),
       });
     },
   );
-  return new Table({
-    rows,
-    columnWidths: columns,
-    layout: TableLayoutType.FIXED,
-    width: { size: columns.reduce((sum, w) => sum + w, 0), type: WidthType.DXA },
-  });
+  return [
+    ...spacer,
+    new Table({
+      rows,
+      columnWidths: columns,
+      layout: TableLayoutType.FIXED,
+      width: { size: columns.reduce((sum, w) => sum + w, 0), type: WidthType.DXA },
+      // Bordures gris clair, comme à l'écran.
+      borders: {
+        top: TABLE_BORDER,
+        bottom: TABLE_BORDER,
+        left: TABLE_BORDER,
+        right: TABLE_BORDER,
+        insideHorizontal: TABLE_BORDER,
+        insideVertical: TABLE_BORDER,
+      },
+    }),
+  ];
 }
 
 function headingStyle(level: 1 | 2 | 3) {
@@ -422,6 +455,7 @@ export function buildDocxParts(
     const breaks = new Set(part.breaks);
     const content = part.json.content ?? [];
     let previousBottom = 0;
+    let previousTable = false;
     if (part.header) children.push(...titlePage(meta, k > 0));
     else if (k > 0 && !content.length) children.push(new Paragraph({ pageBreakBefore: true, spacing: { before: 0, after: 0 }, children: [] }));
     // Bloc par bloc, pour placer les sauts de page aux mêmes endroits qu'à l'écran.
@@ -431,13 +465,21 @@ export function buildDocxParts(
       // Espace au-dessus : comme les marges de l'écran (la plus grande des deux), rien en haut d'une page.
       const atTop = index === 0 || breaks.has(index);
       pendingBreak = newPage;
-      pendingBefore = atTop ? 0 : Math.max(previousBottom, marginTop(node));
+      // Tableau : ses marges s'ajoutent (voir TABLE_MARGIN).
+      pendingBefore = atTop
+        ? 0
+        : node.type === "table"
+          ? Math.max(previousBottom, marginTop(node)) + TABLE_MARGIN
+          : previousTable
+            ? TABLE_MARGIN + marginTop(node)
+            : Math.max(previousBottom, marginTop(node));
       const out = blocks([node], { listLevel: -1, ordered: false, numberingInstance: 0, block: null, inHeader: false });
       // Bloc sans paragraphe (tableau) : un paragraphe vide porte le saut de page.
       if (pendingBreak) out.unshift(new Paragraph({ pageBreakBefore: true, spacing: { before: 0, after: 0 }, children: [] }));
       pendingBreak = false;
       pendingBefore = null;
       previousBottom = marginBottom(node);
+      previousTable = node.type === "table";
       children.push(...out);
     });
   });

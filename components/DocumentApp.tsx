@@ -74,6 +74,7 @@ import { CollapsedPanel } from "./CollapsedPanel";
 import { Editor } from "./Editor";
 import { IdentityDialog } from "./IdentityDialog";
 import { Loading } from "./Loading";
+import { NewsDialog } from "./NewsDialog";
 import { SidePanel, type Person, type SaveState, type SyncState } from "./SidePanel";
 import { formatCopyTime } from "./SaveButton";
 
@@ -1315,6 +1316,9 @@ Il sera supprimé pour tout le groupe.`,
           readOnly={readOnly}
         />
       )}
+
+      {/* Nouveautés du site : une seule fois, pour les élèves, une fois le prénom choisi */}
+      {identity && !readOnly && !showDialog && <NewsDialog />}
 
       {showDialog && (
         <IdentityDialog
