@@ -105,6 +105,16 @@ export default function HelpPage() {
               les membres du groupe, chacun dans sa couleur. Si tu changes de couleur, ton texte change aussi.
             </li>
             <li>
+              Pour <strong>changer de prénom ou de couleur</strong> : bouton <strong>« Modifier »</strong> dans la carte{" "}
+              <strong>« Moi »</strong> (panneau de droite).
+            </li>
+            <li>
+              Carte <strong>« Membres »</strong> : qui est en ligne, qui écrit, et quand les autres sont venus pour la
+              dernière fois. Survole un membre absent puis clique sur la <strong>croix</strong> pour le{" "}
+              <strong>retirer de la liste</strong> (par exemple un prénom en double) : sa couleur redevient libre, et il
+              pourra revenir avec le mot de passe.
+            </li>
+            <li>
               La barre d&apos;outils permet de faire des titres, du gras, de l&apos;italique, des listes et des tableaux, et
               d&apos;<strong>aligner le texte</strong> à gauche, au centre ou à droite (aussi dans une case de tableau).
             </li>
@@ -126,6 +136,11 @@ export default function HelpPage() {
             </li>
             <li>
               Le nombre de <strong>mots</strong> et de <strong>pages</strong> est affiché au bout de la barre d&apos;outils.
+            </li>
+            <li>
+              Sur ordinateur, pour avoir plus de place, <strong>replie le panneau de droite</strong> avec le bouton à côté de « Mes
+              projets » : il devient une colonne d&apos;icônes (Enregistrer, membres, fichiers, commentaires…). Le même
+              bouton, en haut de la colonne, le rouvre.
             </li>
             <li>
               Dans la carte <strong>« Projet »</strong>, ajoute la <strong>date de rendu</strong> : le compte à rebours
@@ -155,7 +170,8 @@ export default function HelpPage() {
             <li>
               Le <strong>V</strong> à côté : clique dessus quand la réponse est bonne. Il devient <strong>vert</strong>, un
               trait vert marque la réponse et son texte est <strong>verrouillé</strong> (jusqu&apos;à la question
-              suivante). Reclique sur le V pour la modifier. Le sommaire montre un V vert devant les questions validées.
+              suivante) : si quelqu&apos;un essaie d&apos;y écrire, le message « Réponse validée » s&apos;affiche. Reclique sur
+              le V pour la modifier. Le sommaire montre un V vert devant les questions validées.
             </li>
           </Points>
         </Section>
@@ -250,6 +266,11 @@ export default function HelpPage() {
             <li>
               <strong>« Nouvelle feuille »</strong>, au-dessus de la barre d&apos;outils, ajoute une page blanche au projet.
               Chaque feuille a son texte, ses versions et ses commentaires. Double-clic sur un onglet pour le renommer.
+            </li>
+            <li>
+              Pour <strong>supprimer une feuille</strong> : ouvre-la, puis clique sur la <strong>corbeille</strong> de son
+              onglet. Elle disparaît pour tout le groupe, mais son texte reste gardé dans le projet par sécurité. La
+              feuille principale ne peut pas être supprimée.
             </li>
             <li>
               Pour <strong>changer l&apos;ordre des feuilles</strong>, glisse un onglet à sa nouvelle place, ou utilise les
