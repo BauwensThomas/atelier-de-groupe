@@ -148,7 +148,7 @@ export default function HelpPage() {
               Écris ta réponse <strong>sous</strong> le bloc.
             </li>
             <li>
-              <strong>« Qui répond ? »</strong>, en bas à droite d&apos;une question : choisis la personne qui doit y
+              <strong>« Qui répond ? »</strong>, à droite de la date d&apos;une question : choisis la personne qui doit y
               répondre. Son prénom s&apos;affiche dans sa couleur (inutile de l&apos;écrire sous la question). Ça marche
               même quand la question est verrouillée.
             </li>

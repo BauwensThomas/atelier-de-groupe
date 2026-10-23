@@ -103,7 +103,7 @@ export function ExportChoiceDialog({ kind, onChoose, onClose, sheets = [] }: Pro
           <input type="checkbox" checked={assignees} onChange={(e) => setAssignees(e.target.checked)} className="mt-0.5 h-4 w-4 accent-neutral-900" />
           <span>
             Afficher qui répond aux questions
-            <span className="block text-xs text-neutral-500">Le prénom choisi dans « Qui répond ? », en bas à droite de la question.</span>
+            <span className="block text-xs text-neutral-500">Le prénom choisi dans « Qui répond ? », à droite de la date de la question.</span>
           </span>
         </label>
         <p className="mb-4 text-sm text-neutral-600">Comment afficher le texte ?</p>

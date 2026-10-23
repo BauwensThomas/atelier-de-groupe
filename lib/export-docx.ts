@@ -14,6 +14,7 @@ import {
   ShadingType,
   Table,
   TableCell,
+  TabStopType,
   TableLayoutType,
   TableRow,
   TextRun,
@@ -234,9 +235,13 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
       case "question": {
         const kind = node.attrs?.kind === "sujet" ? "sujet" : "question";
         const labelColor = kind === "sujet" && colorMode === "color" ? "BDBDBD" : kind === "sujet" ? "595959" : "737373";
+        const assignee = kind === "question" && showAssignees && typeof node.attrs?.assignee === "string" ? node.attrs.assignee : "";
+        const assigneeColor = colorMode === "color" ? (authorColors.get(assignee) ?? "#404040").replace("#", "") : BLACK;
         out.push(
           para({
             ...blockStyle(kind),
+            // Taquet à droite, au bord intérieur du bloc (largeur du texte moins le retrait de droite).
+            tabStops: assignee ? [{ type: TabStopType.RIGHT, position: PAGE_TEXT_WIDTH - 120 }] : undefined,
             spacing: { before: 0, after: 0, ...exact(300) },
             children: [
               new TextRun({
@@ -248,22 +253,11 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
               ...(formatDate(node.attrs?.date)
                 ? [new TextRun({ text: `    ${formatDate(node.attrs?.date)}`, size: 16, color: labelColor })]
                 : []),
+              ...(assignee ? [new TextRun({ text: `\t${assignee}`, bold: true, size: 18, color: assigneeColor })] : []),
             ],
           }),
         );
         out.push(...blocks(node.content, { ...ctx, block: kind }));
-        const assignee = kind === "question" && typeof node.attrs?.assignee === "string" ? node.attrs.assignee : "";
-        if (assignee && showAssignees) {
-          const color = colorMode === "color" ? (authorColors.get(assignee) ?? "#404040").replace("#", "") : BLACK;
-          out.push(
-            para({
-              ...blockStyle(kind),
-              alignment: AlignmentType.RIGHT,
-              spacing: { before: 30, after: 0, ...exact(270) },
-              children: [new TextRun({ text: assignee, bold: true, size: 18, color })],
-            }),
-          );
-        }
         break;
       }
 

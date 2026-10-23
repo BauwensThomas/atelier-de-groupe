@@ -132,63 +132,66 @@ export function QuestionView({ node, editor, getPos }: ReactNodeViewProps) {
             />
           )}
         </div>
-        <div className="question-actions no-print ml-auto flex items-center gap-0.5">
-          {!locked && (
+        {/* À droite : boutons (au survol), puis "Qui répond ?" et le V, sur la ligne de la date */}
+        <div className="ml-auto flex items-center gap-1.5">
+          <div className="question-actions no-print flex items-center gap-0.5">
+            {!locked && (
+              <button
+                type="button"
+                onMouseDown={keepSelection}
+                onClick={remove}
+                className="flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-red-700 hover:bg-red-50"
+              >
+                <Trash2 size={12} aria-hidden />
+                {isSubject ? "Supprimer le sujet" : "Supprimer la question"}
+              </button>
+            )}
             <button
               type="button"
               onMouseDown={keepSelection}
-              onClick={remove}
-              className="flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-red-700 hover:bg-red-50"
+              onClick={toggleLock}
+              title={locked ? "Déverrouiller pour corriger" : "Verrouiller"}
+              aria-label={locked ? `Déverrouiller ${isSubject ? "le sujet" : "la question"}` : "Verrouiller"}
+              className={`rounded p-0.5 hover:bg-neutral-100 ${locked ? "text-neutral-400" : "text-amber-700"}`}
             >
-              <Trash2 size={12} aria-hidden />
-              {isSubject ? "Supprimer le sujet" : "Supprimer la question"}
+              {locked ? <Lock size={12} aria-hidden /> : <LockOpen size={12} aria-hidden />}
             </button>
+          </div>
+          {!isSubject && (canAssign || assignee || validated) && (
+            <div className="question-people flex items-center">
+              {canAssign && <AssigneePicker editor={editor} value={assignee} onChange={changeAssignee} />}
+              {(canAssign || validated) && (
+                <button
+                  type="button"
+                  onMouseDown={keepSelection}
+                  onClick={canAssign ? toggleValidated : undefined}
+                  disabled={!canAssign}
+                  aria-pressed={validated}
+                  title={
+                    validated
+                      ? canAssign
+                        ? "Réponse validée (texte verrouillé). Clique pour retirer la validation."
+                        : "Réponse validée"
+                      : "Valider la réponse (le texte sera verrouillé)"
+                  }
+                  aria-label={validated ? "Retirer la validation de la réponse" : "Valider la réponse"}
+                  className={`question-validate no-print ml-1.5 flex h-[20px] w-[22px] items-center justify-center rounded border ${
+                    validated ? "border-green-600 bg-green-600 text-white" : "border-neutral-300 bg-white text-neutral-300 hover:border-green-600 hover:text-green-600"
+                  } disabled:cursor-default`}
+                >
+                  <Check size={14} strokeWidth={3} aria-hidden />
+                </button>
+              )}
+              {assignee && (
+                <span className={`question-assignee font-semibold${canAssign ? " print-only" : ""}`} data-person={assignee}>
+                  {assignee}
+                </span>
+              )}
+            </div>
           )}
-          <button
-            type="button"
-            onMouseDown={keepSelection}
-            onClick={toggleLock}
-            title={locked ? "Déverrouiller pour corriger" : "Verrouiller"}
-            aria-label={locked ? `Déverrouiller ${isSubject ? "le sujet" : "la question"}` : "Verrouiller"}
-            className={`rounded p-0.5 hover:bg-neutral-100 ${locked ? "text-neutral-400" : "text-amber-700"}`}
-          >
-            {locked ? <Lock size={12} aria-hidden /> : <LockOpen size={12} aria-hidden />}
-          </button>
         </div>
       </div>
       <NodeViewContent className="question-content" />
-      {!isSubject && (canAssign || assignee || validated) && (
-        <div className="question-footer" contentEditable={false}>
-          {canAssign && <AssigneePicker editor={editor} value={assignee} onChange={changeAssignee} />}
-          {(canAssign || validated) && (
-            <button
-              type="button"
-              onMouseDown={keepSelection}
-              onClick={canAssign ? toggleValidated : undefined}
-              disabled={!canAssign}
-              aria-pressed={validated}
-              title={
-                validated
-                  ? canAssign
-                    ? "Réponse validée (texte verrouillé). Clique pour retirer la validation."
-                    : "Réponse validée"
-                  : "Valider la réponse (le texte sera verrouillé)"
-              }
-              aria-label={validated ? "Retirer la validation de la réponse" : "Valider la réponse"}
-              className={`question-validate no-print ml-1.5 flex h-[20px] w-[22px] items-center justify-center rounded border ${
-                validated ? "border-green-600 bg-green-600 text-white" : "border-neutral-300 bg-white text-neutral-300 hover:border-green-600 hover:text-green-600"
-              } disabled:cursor-default`}
-            >
-              <Check size={14} strokeWidth={3} aria-hidden />
-            </button>
-          )}
-          {assignee && (
-            <span className={`question-assignee font-semibold${canAssign ? " print-only" : ""}`} data-person={assignee}>
-              {assignee}
-            </span>
-          )}
-        </div>
-      )}
     </NodeViewWrapper>
   );
 }

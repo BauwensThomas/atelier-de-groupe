@@ -263,32 +263,27 @@ body {
   }
 }
 
-/* "Qui répond ?" en bas à droite de la question */
-.question-footer {
-  display: flex;
-  justify-content: flex-end;
-  min-height: 20px;
-  margin-top: 2px;
+/* "Qui répond ?" et le V, à droite sur la ligne de la date */
+.question-people {
   font-size: 12px;
   line-height: 18px;
-  user-select: none;
 }
 
 .question-assignee {
   color: #404040;
 }
 
-.question-footer .print-only {
+.question-people .print-only {
   display: none;
 }
 
 @media print {
-  .question-footer .print-only {
+  .question-people .print-only {
     display: inline;
   }
 
   /* Export sans "qui répond" */
-  body.print-no-assignee .question-footer {
+  body.print-no-assignee .question-people {
     display: none;
   }
 }
