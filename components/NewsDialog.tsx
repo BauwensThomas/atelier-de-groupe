@@ -70,7 +70,7 @@ export function NewsDialog() {
 
   if (!open) return null;
   return (
-    <div className="no-print fixed inset-0 z-[85] flex items-center justify-center bg-black/40 px-4">
+    <div className="no-print fixed inset-0 z-85 flex items-center justify-center bg-black/40 px-4">
       <div role="dialog" aria-modal="true" aria-labelledby="news-title" className="flex max-h-[85vh] w-full max-w-md flex-col rounded-xl bg-white shadow-xl">
         <h2 id="news-title" className="flex items-center gap-2 px-5 pt-5 pb-3 text-lg font-semibold">
           <Sparkles size={18} className="text-amber-500" aria-hidden />

@@ -69,7 +69,7 @@ export function IdleGuard({ onIdle, onResume }: Props) {
 
   if (disconnected) {
     return (
-      <div className="no-print fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4">
+      <div className="no-print fixed inset-0 z-60 flex items-center justify-center bg-black/30 px-4">
         <div role="alertdialog" aria-modal="true" aria-labelledby="idle-title" className="w-full max-w-sm rounded-xl bg-white p-6 text-center shadow-lg">
           <PowerOff size={26} className="mx-auto mb-3 text-neutral-500" aria-hidden />
           <h2 id="idle-title" className="font-semibold">

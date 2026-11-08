@@ -83,7 +83,7 @@ export function ExportChoiceDialog({ kind, onChoose, onClose, sheets = [] }: Pro
 
   return (
     <div
-      className="no-print fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4"
+      className="no-print fixed inset-0 z-80 flex items-center justify-center bg-black/40 px-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
