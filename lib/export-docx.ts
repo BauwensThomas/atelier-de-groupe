@@ -281,7 +281,8 @@ function blocks(nodes: JSONContent[] | undefined, ctx: Context): Array<Paragraph
         out.push(
           para({
             alignment: AlignmentType.CENTER,
-            spacing: { before: 0, after: 0 },
+            // Interligne automatique : avec l'interligne fixe du texte, Word ne montrerait qu'une bande de l'image.
+            spacing: { before: 0, after: 0, line: 240, lineRule: LineRuleType.AUTO },
             children: [
               new ImageRun({
                 type: img.type,

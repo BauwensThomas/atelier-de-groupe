@@ -1037,7 +1037,7 @@ Il sera supprimé pour tout le groupe.`,
       {/* Petit espace de 8 px en haut ; le bandeau du document, le panneau et le fichier restent collés à cette hauteur.
           Cette bande (couleur du fond, toute la largeur) cache ce qui défile dans l'espace, bords de la carte compris. */}
       <div className="no-print sticky top-0 z-30 -mb-2 hidden h-2 bg-neutral-100 sm:block" aria-hidden />
-      <div className="print-reset flex flex-col gap-4 p-2 sm:px-4 sm:pt-2 sm:pb-4 lg:flex-row lg:items-start">
+      <div className="print-reset flex flex-col gap-4 p-2 sm:px-4 sm:pt-2 sm:pb-4 md:flex-row md:items-start">
         {/* Pas de découpe (overflow) : le bandeau du haut dessine lui-même les coins arrondis de la carte. */}
         {/* Document, avec le fichier ouvert à côté (à gauche ou à droite). */}
         <div ref={splitRef} className={`print-reset flex min-w-0 flex-1 flex-col gap-4 ${openFile ? "lg:flex-row lg:items-start lg:gap-0" : ""}`}>
@@ -1134,14 +1134,14 @@ Il sera supprimé pour tout le groupe.`,
         </div>
 
         {/* Panneau toujours visible pendant le défilement (avec sa propre barre s'il dépasse l'écran).
-            Replié : colonne d'environ 1 cm (ordinateur seulement ; sur téléphone, le panneau reste complet). */}
+            Replié : colonne d'environ 1 cm. Sur le côté dès 768 px (demi-écran compris) ; sur téléphone, le panneau reste au-dessus. */}
         <aside
-          className={`no-print order-first lg:sticky lg:top-2 lg:order-0 lg:max-h-[calc(100vh-1rem)] lg:shrink-0 lg:self-start lg:overflow-y-auto lg:p-px ${
-            panelCollapsed ? "lg:w-12" : "lg:w-64 xl:w-72"
+          className={`no-print order-first md:sticky md:top-2 md:order-0 md:max-h-[calc(100vh-1rem)] md:shrink-0 md:self-start md:overflow-y-auto md:p-px ${
+            panelCollapsed ? "md:w-12" : "md:w-64 xl:w-72"
           }`}
         >
           {panelCollapsed && (
-            <div className="hidden lg:block">
+            <div className="hidden md:block">
               <CollapsedPanel
                 people={people}
                 sync={sync}
@@ -1166,7 +1166,7 @@ Il sera supprimé pour tout le groupe.`,
               />
             </div>
           )}
-          <div className={panelCollapsed ? "lg:hidden" : ""}>
+          <div className={panelCollapsed ? "md:hidden" : ""}>
           <SidePanel
             onCollapse={() => togglePanel(true)}
             identity={identity}

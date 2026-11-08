@@ -138,9 +138,9 @@ export default function HelpPage() {
               Le nombre de <strong>mots</strong> et de <strong>pages</strong> est affiché au bout de la barre d&apos;outils.
             </li>
             <li>
-              Sur ordinateur, pour avoir plus de place, <strong>replie le panneau de droite</strong> avec le bouton à côté de « Mes
-              projets » : il devient une colonne d&apos;icônes (Enregistrer, membres, fichiers, commentaires…). Le même
-              bouton, en haut de la colonne, le rouvre.
+              Sur ordinateur, même en demi-écran, pour avoir plus de place, <strong>replie le panneau de droite</strong> avec le
+              bouton à côté de « Mes projets » : il devient une colonne d&apos;icônes (Enregistrer, membres, fichiers,
+              commentaires…). Le même bouton, en haut de la colonne, le rouvre.
             </li>
             <li>
               Dans la carte <strong>« Projet »</strong>, ajoute la <strong>date de rendu</strong> : le compte à rebours

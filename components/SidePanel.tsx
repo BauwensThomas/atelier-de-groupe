@@ -120,7 +120,7 @@ export function SidePanel(props: Props) {
               onClick={props.onCollapse}
               title="Replier le panneau"
               aria-label="Replier le panneau"
-              className="ml-1 hidden rounded p-0.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 lg:block"
+              className="ml-1 hidden rounded p-0.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 md:block"
             >
               <PanelRightClose size={15} aria-hidden />
             </button>
