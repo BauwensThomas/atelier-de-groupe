@@ -19,8 +19,26 @@ export function printWithMode(mode: ColorMode, options: ExportOptions = { assign
     window.removeEventListener("afterprint", cleanup);
   };
   window.addEventListener("afterprint", cleanup);
-  // Laisse la fenêtre de choix se fermer avant d'ouvrir l'impression.
-  setTimeout(() => window.print(), 50);
+  // Laisse la fenêtre de choix se fermer, et les images se charger, avant d'ouvrir l'impression.
+  setTimeout(() => void loadAllImages().then(() => window.print()), 50);
+}
+
+const IMAGE_WAIT_MS = 15000;
+
+/** Les images du document ne se chargent que quand on les fait défiler jusqu'à l'écran : sans cela, celles
+ *  plus bas (ou des autres feuilles) seraient vides à l'impression. On les charge toutes et on attend. */
+function loadAllImages(): Promise<void> {
+  const images = [...document.querySelectorAll<HTMLImageElement>(".tiptap img")];
+  const waits = images.map((img) => {
+    img.loading = "eager";
+    if (img.complete) return Promise.resolve();
+    return new Promise<void>((done) => {
+      img.addEventListener("load", () => done(), { once: true });
+      img.addEventListener("error", () => done(), { once: true });
+    });
+  });
+  // Une image qui ne répond pas ne bloque pas l'impression.
+  return Promise.race([Promise.all(waits).then(() => undefined), new Promise<void>((done) => setTimeout(done, IMAGE_WAIT_MS))]);
 }
 
 type Props = {
