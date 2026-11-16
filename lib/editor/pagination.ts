@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
+import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
 
@@ -150,6 +150,33 @@ function build(doc: PMNode, pages: Pages): DecorationSet {
   return DecorationSet.create(doc, decorations);
 }
 
+/**
+ * Texte modifié ici (Entrée, frappe, suppression) : chaque saut suit le bloc qu'il précédait.
+ * Sans cela, un paragraphe ajouté décalait d'un bloc tous les sauts suivants, et toutes les pages
+ * bougeaient un instant jusqu'au calcul suivant. Document remplacé d'un coup (modification venue d'un
+ * autre écran) : les positions ne se suivent plus, on garde alors les mêmes numéros de blocs.
+ */
+function follow(tr: Transaction, pages: Pages): Pages {
+  if (!pages || !pages.breaks.length) return pages;
+  const oldOffsets: number[] = [];
+  tr.before.forEach((_node, offset) => oldOffsets.push(offset));
+  const newIndex = new Map<number, number>();
+  tr.doc.forEach((_node, offset, index) => newIndex.set(offset, index));
+  const breaks: NonNullable<Pages>["breaks"] = [];
+  let previous = -1;
+  for (const b of pages.breaks) {
+    const pos = oldOffsets[b.index];
+    if (pos === undefined) return pages;
+    const mapped = tr.mapping.mapResult(pos, 1);
+    const index = mapped.deletedAfter ? undefined : newIndex.get(mapped.pos);
+    // Bloc supprimé ou document remplacé : on garde les numéros tels quels.
+    if (index === undefined || index <= previous) return pages;
+    breaks.push({ ...b, index });
+    previous = index;
+  }
+  return { ...pages, breaks };
+}
+
 /** Numéros des blocs qui commencent une nouvelle page à l'écran (pour l'export Word). */
 export function pageBreakIndices(state: EditorState): number[] {
   return key.getState(state)?.pages?.breaks.map((b) => b.index) ?? [];
@@ -167,8 +194,11 @@ export const Pagination = Extension.create({
           apply(tr, prev) {
             const measured = tr.getMeta(key) as { pages: Pages } | undefined;
             if (measured) return { pages: measured.pages, set: build(tr.doc, measured.pages) };
-            // Texte modifié : mêmes sauts, replacés avant les mêmes blocs (le calcul exact suit juste après).
-            if (tr.docChanged) return { pages: prev.pages, set: build(tr.doc, prev.pages) };
+            // Texte modifié : les sauts suivent leurs blocs (le calcul exact suit juste après).
+            if (tr.docChanged) {
+              const pages = follow(tr, prev.pages);
+              return { pages, set: build(tr.doc, pages) };
+            }
             return prev;
           },
         },
