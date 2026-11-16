@@ -79,7 +79,33 @@ function measure(view: EditorView): Pages {
     return null;
   }
   pageEl.classList.add("paginated");
+  // Le premier bloc d'une page perd son espace du haut (voir globals.css). Pour la mesure, on le lui rend :
+  // sinon un bloc mesuré tantôt avec, tantôt sans cet espace changeait de page à la moindre modification.
+  view.dom.classList.add("measuring-pages");
+  try {
+    return measureLayout(view, pageEl);
+  } finally {
+    view.dom.classList.remove("measuring-pages");
+  }
+}
 
+/** Espace (marge) en haut ou en bas d'un bloc, y compris celui de son premier ou dernier élément intérieur
+ *  (il "dépasse" du bloc quand rien ne l'en sépare : pas de bordure ni d'espace intérieur). */
+function edgeMargin(el: Element, side: "top" | "bottom"): number {
+  let margin = 0;
+  let current: Element | null = el;
+  for (let depth = 0; current && depth < 4; depth++) {
+    const style = getComputedStyle(current);
+    margin = Math.max(margin, parseFloat(side === "top" ? style.marginTop : style.marginBottom) || 0);
+    const padding = parseFloat(side === "top" ? style.paddingTop : style.paddingBottom) || 0;
+    const border = parseFloat(side === "top" ? style.borderTopWidth : style.borderBottomWidth) || 0;
+    if (padding || border) break;
+    current = side === "top" ? current.firstElementChild : current.lastElementChild;
+  }
+  return margin;
+}
+
+function measureLayout(view: EditorView, pageEl: HTMLElement): Pages {
   const style = getComputedStyle(pageEl);
   const layout: Layout = {
     padTop: parseFloat(style.paddingTop),
@@ -105,18 +131,34 @@ function measure(view: EditorView): Pages {
   let pageTop = 0;
   let previousBottom = 0;
   let page = 1;
+  // Bloc précédent : un titre reste avec le bloc qui le suit (comme dans Word), jamais seul en bas de page.
+  let previous: { index: number; top: number; heading: boolean; bottomBefore: number } | null = null;
+  let shift = 0;
 
   view.state.doc.forEach((node, offset, index) => {
     const dom = view.nodeDOM(offset);
     if (!(dom instanceof HTMLElement)) return;
     const rect = dom.getBoundingClientRect();
-    const top = flow(rect.top / scale);
+    // Juste après un saut de page affiché, l'espace sous le bloc d'avant et l'espace au-dessus de celui-ci
+    // s'additionnent ; sans saut, ils se confondent (le plus grand des deux). Cet écart décale tout ce qui suit :
+    // on le retire pour retrouver le texte "sans pages".
+    const widget = dom.previousElementSibling;
+    const before = widget?.classList.contains("page-break") ? widget.previousElementSibling : null;
+    if (before) shift += Math.min(edgeMargin(before, "bottom"), edgeMargin(dom, "top"));
+    const top = flow(rect.top / scale) - shift;
     const bottom = top + rect.height / scale;
     if (bottom - pageTop > contentHeight && top > pageTop + 1) {
-      breaks.push({ index, n: page, filler: pageTop + contentHeight - previousBottom });
+      if (previous?.heading && previous.top > pageTop + 1) {
+        // Le titre passe à la page suivante avec son texte.
+        breaks.push({ index: previous.index, n: page, filler: pageTop + contentHeight - previous.bottomBefore });
+        pageTop = previous.top;
+      } else {
+        breaks.push({ index, n: page, filler: pageTop + contentHeight - previousBottom });
+        pageTop = top;
+      }
       page += 1;
-      pageTop = top;
     }
+    previous = { index, top, heading: node.type.name === "heading", bottomBefore: previousBottom };
     previousBottom = bottom;
   });
 

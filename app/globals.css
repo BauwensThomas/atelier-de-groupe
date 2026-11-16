@@ -43,7 +43,9 @@ body {
   pointer-events: none;
 }
 
-.tiptap > .page-break + * {
+/* Premier bloc d'une page : pas d'espace au-dessus. Pendant le calcul des pages (classe "measuring-pages"),
+   l'espace est remis : chaque bloc est mesuré de la même façon, où que tombent les sauts de page. */
+.tiptap:not(.measuring-pages) > .page-break + * {
   margin-top: 0 !important;
 }
 
