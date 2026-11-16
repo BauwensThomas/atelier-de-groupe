@@ -8,28 +8,24 @@ import { useEffect, useState } from "react";
 // changer NEWS_ID et la liste NEWS.
 
 const NEWS_KEY = "gp.newsSeen";
-const NEWS_ID = "2026-10-23";
+const NEWS_ID = "2026-11-16";
 
 const NEWS: Array<{ title: string; text: string }> = [
   {
-    title: "Bouton « Enregistrer »",
-    text: "En haut à droite : rouge s'il reste des modifications à enregistrer, vert quand tout est enregistré. Ctrl+S fait la même chose. Une copie est aussi faite toute seule quand tu arrêtes d'écrire ou quand tu quittes la page.",
+    title: "Petites corrections",
+    text: "Dans le texte d'un autre, une majuscule, un accent, une espace ou une ponctuation corrigés ne sont plus barrés : le texte garde la couleur de son auteur. L'activité note la correction.",
   },
   {
-    title: "« Qui répond ? » et le V vert",
-    text: "À droite de la date d'une question : choisis la personne qui doit y répondre, son prénom s'affiche dans sa couleur. Le V vert valide la réponse et verrouille son texte (reclique dessus pour la modifier).",
+    title: "Pages",
+    text: "Moins de marge en haut et en bas des pages, à l'écran, dans le PDF et dans Word.",
   },
   {
-    title: "Tableaux et alignement",
-    text: "Glisse la bordure d'une colonne pour l'élargir. Les boutons d'alignement centrent le texte ou le mettent à droite, aussi dans une case de tableau.",
+    title: "Demi-écran",
+    text: "Fenêtre en demi-écran : le panneau reste sur le côté, comme sur grand écran. Replie-le pour avoir plus de place.",
   },
   {
-    title: "Feuilles",
-    text: "Glisse un onglet pour changer l'ordre des feuilles.",
-  },
-  {
-    title: "PDF et Word",
-    text: "Choisis les feuilles à inclure : un seul fichier, les numéros de page continuent. Tu peux aussi afficher ou non qui répond aux questions.",
+    title: "Images",
+    text: "Les images s'affichent en entier dans Word et dans le PDF.",
   },
 ];
 

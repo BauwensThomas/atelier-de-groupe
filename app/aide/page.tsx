@@ -184,6 +184,12 @@ export default function HelpPage() {
               ou cliquer dedans puis sur <strong>« Restaurer »</strong> pour annuler la rature.
             </li>
             <li>Le texte barré n&apos;apparaît pas dans l&apos;export final.</li>
+            <li>
+              <strong>Petites corrections</strong> dans le texte d&apos;un autre (majuscule, accent, espace, ponctuation) :
+              rien n&apos;est barré, le texte garde la couleur de son auteur. Sélectionne la lettre et tape la bonne, ou
+              efface-la et retape-la. L&apos;activité note « a corrigé des majuscules, accents ou ponctuation dans le texte
+              de… ». Un mot changé ou une lettre en plus reste dans ta couleur.
+            </li>
           </Points>
         </Section>
 

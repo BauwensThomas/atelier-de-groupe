@@ -15,7 +15,7 @@ body {
   min-height: 297mm;
   background: #fff;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.08), 0 8px 24px rgb(0 0 0 / 0.06);
-  padding: 25mm 20mm;
+  padding: 15mm 20mm;
 }
 
 @media (max-width: 640px) {
@@ -320,11 +320,11 @@ body {
 
 /* Impression / PDF : page seule, tout en noir */
 @media print {
-  /* Mêmes marges que la page à l'écran (25 mm en haut et en bas, 20 mm sur les côtés) :
+  /* Mêmes marges que la page à l'écran (15 mm en haut et en bas, 20 mm sur les côtés) :
      mêmes lignes et mêmes pages dans le PDF qu'à l'écran. */
   @page {
     size: A4;
-    margin: 25mm 20mm;
+    margin: 15mm 20mm;
 
     @bottom-center {
       content: counter(page);

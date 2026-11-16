@@ -3,6 +3,7 @@ import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
 import { Mapping } from "@tiptap/pm/transform";
 import type { Identity } from "@/lib/identity";
 import { internalKey, isRemote, isSafeColor } from "./shared";
+import { minorFixKey } from "./minor-fix";
 
 type AuthorOptions = {
   /** Renvoie l'identité courante (prénom, couleur), ou null si pas encore choisie. */
@@ -18,7 +19,8 @@ function insertedRanges(transactions: readonly Transaction[]): Array<[number, nu
   const mapping = new Mapping();
   const counted: boolean[] = [];
   for (const tr of transactions) {
-    const internal = Boolean(tr.getMeta(internalKey));
+    // Petite correction (majuscule, accent, ponctuation) : le texte garde la couleur de son auteur.
+    const internal = Boolean(tr.getMeta(internalKey)) || tr.getMeta(minorFixKey) !== undefined;
     for (const map of tr.mapping.maps) {
       mapping.appendMap(map);
       counted.push(!internal);

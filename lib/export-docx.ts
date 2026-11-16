@@ -516,7 +516,7 @@ export function buildDocxParts(
         properties: {
           page: {
             size: { width: 11906, height: 16838 },
-            margin: { top: Math.round(25 * MM), bottom: Math.round(25 * MM), left: Math.round(20 * MM), right: Math.round(20 * MM), footer: Math.round(10 * MM) },
+            margin: { top: Math.round(15 * MM), bottom: Math.round(15 * MM), left: Math.round(20 * MM), right: Math.round(20 * MM), footer: Math.round(6 * MM) },
           },
         },
         // Numéro de page centré en bas de chaque page

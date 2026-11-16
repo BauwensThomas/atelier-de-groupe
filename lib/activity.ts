@@ -5,6 +5,7 @@ import type * as Y from "yjs";
 import type { Transaction } from "@tiptap/pm/state";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Identity } from "@/lib/identity";
+import { minorFixKey } from "@/lib/editor/minor-fix";
 
 // Journal d'activité partagé, stocké dans le document Yjs.
 
@@ -14,6 +15,7 @@ export type ActivityType =
   | "write"
   | "erase"
   | "strike"
+  | "fix"
   | "restore"
   | "add-question"
   | "add-sujet"
@@ -53,7 +55,7 @@ const MAX_ENTRIES = 500;
 // en la remettant à jour au plus toutes les 30 secondes.
 const SESSION_GAP_MS = 5 * 60 * 1000;
 const REFRESH_MS = 30 * 1000;
-const THROTTLED: ActivityType[] = ["write", "erase", "strike", "restore", "title", "authors"];
+const THROTTLED: ActivityType[] = ["write", "erase", "strike", "fix", "restore", "title", "authors"];
 
 const pending = new Map<string, { at: number }>();
 
@@ -174,6 +176,10 @@ export function describeTransaction(tr: Transaction): Array<{ type: ActivityType
     if (!out.some((o) => o.type === type && o.detail === detail)) out.push({ type, detail });
   };
 
+  // Petite correction dans le texte d'un autre : une seule ligne, avec le prénom de l'auteur.
+  const fixed = tr.getMeta(minorFixKey) as string | undefined;
+  if (fixed !== undefined) return [{ type: "fix", detail: fixed }];
+
   tr.steps.forEach((step, i) => {
     const json = step.toJSON() as StepJSON;
     const doc = tr.docs[i];
@@ -226,6 +232,11 @@ export function describeActivity(a: Activity): string {
       return /^[aeiouyhàâäéèêëîïôöùûü]/i.test(a.detail)
         ? `a barré du texte d'${a.detail}`
         : `a barré du texte de ${a.detail}`;
+    case "fix":
+      if (!a.detail) return "a corrigé des majuscules, accents ou ponctuation";
+      return /^[aeiouyhàâäéèêëîïôöùûü]/i.test(a.detail)
+        ? `a corrigé des majuscules, accents ou ponctuation dans le texte d'${a.detail}`
+        : `a corrigé des majuscules, accents ou ponctuation dans le texte de ${a.detail}`;
     case "restore":
       return "a restauré du texte barré";
     case "add-question":

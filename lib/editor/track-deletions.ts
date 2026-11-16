@@ -4,6 +4,7 @@ import { Mapping, type ReplaceStep, type Step } from "@tiptap/pm/transform";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Identity } from "@/lib/identity";
 import { internalKey, isRemote, isSafeColor } from "./shared";
+import { minorFix } from "./minor-fix";
 
 type TrackOptions = {
   getUser: () => Identity | null;
@@ -175,6 +176,12 @@ export const DeletedMark = Mark.create<TrackOptions>({
     const user = this.options.getUser();
     if (!user || !transaction.docChanged || isRemote(transaction) || transaction.getMeta(internalKey)) {
       next(transaction);
+      return;
+    }
+    // Majuscule, accent, espace ou ponctuation corrigés dans le texte d'un autre : gardé dans sa couleur.
+    const fixed = minorFix(transaction, this.editor.state, user);
+    if (fixed) {
+      next(fixed);
       return;
     }
     const rewritten = rewrite(transaction, this.editor.state, user);
